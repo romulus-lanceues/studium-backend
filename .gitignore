@@ -1,0 +1,32 @@
+# Maven build folder
+target/
+
+# Ignore class / build artifacts
+*.class
+*.jar
+*.war
+
+# Logs
+*.log
+logs/
+
+# IDE / Editors
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# STS / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# OS
+.DS_Store
+Thumbs.db
+
