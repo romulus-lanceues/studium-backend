@@ -32,13 +32,7 @@ public class SessionService {
         this.studySessionRepository = studySessionRepository;
     }
 
-    /*
-        Start a session service
 
-        1. Check if the subject belongs to the user
-        2. Create a new session using the details provided in the request
-        3. Return a request
-     */
 
     public SessionResponse createSession(StartSessionRequest startSessionRequest, UserDetails userDetails){
 
