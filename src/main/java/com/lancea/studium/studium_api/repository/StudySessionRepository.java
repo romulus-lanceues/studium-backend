@@ -1,10 +1,14 @@
 package com.lancea.studium.studium_api.repository;
 
+import com.lancea.studium.studium_api.entity.SessionStatus;
+import com.lancea.studium.studium_api.entity.SessionType;
 import com.lancea.studium.studium_api.entity.StudySession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface StudySessionRepository extends JpaRepository<StudySession, Long> {
@@ -18,7 +22,13 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     @Query("SELECT s FROM StudySession s JOIN FETCH s.subject JOIN FETCH s.user WHERE s.id = :sessionId")
     Optional<StudySession> findByIdWithSubjectAndUser(@Param("sessionId") Long sessionId);
 
+    //Checks if the session exists using the userId and scheduleId BOOLEAN return value
     boolean existsByIdAndUserId(Long sessionId, Long subjectId);
 
+    //Checks if the session exists using the userId and scheduleId OPTIONAL return type
     Optional<StudySession> findByIdAndUserId(Long sessionId, Long userId);
+
+    @Query("SELECT s FROM StudySession s WHERE s.startTime >= :cutoff AND s.sessionStatus = :status")
+    List<StudySession> findRecentCompletedSessions(@Param("cutoff")LocalDateTime cutoff, @Param("status") SessionStatus status);
+
 }
