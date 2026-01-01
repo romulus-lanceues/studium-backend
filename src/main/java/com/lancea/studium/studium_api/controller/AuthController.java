@@ -2,15 +2,13 @@ package com.lancea.studium.studium_api.controller;
 
 
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
+import com.lancea.studium.studium_api.dto.request.RefreshTokenRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.request.ValidationGroups;
 import com.lancea.studium.studium_api.dto.response.AuthResponse;
-import com.lancea.studium.studium_api.entity.User;
+import com.lancea.studium.studium_api.dto.response.NewRefreshTokenResponse;
 import com.lancea.studium.studium_api.service.AuthService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -32,7 +30,7 @@ public class AuthController {
     //Random Endpoint to test if the API is up and running
     @GetMapping("/test")
     public AuthResponse apiTest(){
-        return new AuthResponse(000L, "API up and working", "studium API", null);
+        return new AuthResponse(000L, "API up and working", "studium API", null,  null);
     }
 
     //Account Registration Controller
@@ -71,6 +69,21 @@ public class AuthController {
         Map<String, Object> authResponseBody = authService.getSpecificUser(userId);
 
         return ResponseEntity.ok(authResponseBody);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<NewRefreshTokenResponse> refreshToken(@RequestBody RefreshTokenRequest refreshRequest){
+
+        NewRefreshTokenResponse response = authService.generateNewRefreshToken(refreshRequest);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody RefreshTokenRequest logoutRequest){
+        authService.logoutUser(logoutRequest);
+
+        return ResponseEntity.ok("Logout Successfully");
     }
 
 

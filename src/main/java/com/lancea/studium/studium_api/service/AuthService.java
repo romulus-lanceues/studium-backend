@@ -1,14 +1,21 @@
 package com.lancea.studium.studium_api.service;
 
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
+import com.lancea.studium.studium_api.dto.request.RefreshTokenRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
 import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.dto.response.NewRefreshTokenResponse;
+import com.lancea.studium.studium_api.entity.RefreshToken;
 import com.lancea.studium.studium_api.entity.Role;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
 import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.UserRepository;
+import com.lancea.studium.studium_api.security.MyUserDetails;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,12 +28,14 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
+    private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder
+    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository, PasswordEncoder passwordEncoder
     , JwtService jwtService){
+        this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -53,7 +62,9 @@ public class AuthService {
 
         userRepository.save(newUser);
 
-        return new AuthResponse(newUser.getId(), newUser.getEmail(), newUser.getFullName(), null);
+        //       ===TOKEN CREATION FOR ACCOUNT CREATION NOT YET IMPLEMENTED ===
+
+        return new AuthResponse(newUser.getId(), newUser.getEmail(), newUser.getFullName(), null, null);
     }
 
     //Create admin account
@@ -73,7 +84,7 @@ public class AuthService {
 
         userRepository.save(newAdminAccount);
 
-        return new AuthResponse(newAdminAccount.getId(), newAdminAccount.getEmail(), newAdminAccount.getFullName(), null);
+        return new AuthResponse(newAdminAccount.getId(), newAdminAccount.getEmail(), newAdminAccount.getFullName(), null, null);
     }
 
     //Used to hash password during signup
@@ -81,19 +92,27 @@ public class AuthService {
         return passwordEncoder.encode(rawPassword);
     }
 
+
+    //Login method
     public AuthResponse verifyCredentials(LoginRequest loginRequest){
 
-        Optional<User> existingUser = userRepository.findByEmail(loginRequest.email());
+            //Authenticate user using Spring Security
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                    loginRequest.email(),
+                    loginRequest.password()
+            );
+            Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
-        User retrievedUser = existingUser.orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
+            MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
+            System.out.println(userDetails.getUsername());
+            User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
+            System.out.println(retrievedUser.getId());
 
-        if(!verifyPassword(loginRequest.password(), retrievedUser.getPassword())){
-            throw new UnauthorizedException("Incorrect Password");
-        }
+            String token = jwtService.generateJwtToken(retrievedUser);
+            String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
 
-        String token = jwtService.generateJwtToken(existingUser.get());
+            return new AuthResponse(retrievedUser.getId(), retrievedUser.getEmail(), retrievedUser.getFullName(), token, refreshToken);
 
-        return new AuthResponse(retrievedUser.getId(), retrievedUser.getEmail(), retrievedUser.getFullName(), token);
     }
 
     //Used to verify the password during login
@@ -116,4 +135,24 @@ public class AuthService {
 
         return authResponseBody;
     }
+
+    public NewRefreshTokenResponse generateNewRefreshToken(RefreshTokenRequest refreshRequest){
+
+        RefreshToken oldRefreshToken = jwtService.verifyRefreshToken(refreshRequest.refreshToken());
+
+        jwtService.revokeRefreshToken(oldRefreshToken.getToken());
+
+        User user = userRepository.findById(oldRefreshToken.getUserId()).orElseThrow( () -> new ResourceNotFoundException("User doesn't exist"));
+
+        String newAccessToken = jwtService.generateJwtToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user.getId());
+
+        return new NewRefreshTokenResponse(newAccessToken, newRefreshToken);
+    }
+
+    public void logoutUser(RefreshTokenRequest logoutRequest){
+        jwtService.revokeRefreshToken(logoutRequest.refreshToken());
+    }
+
+
 }
