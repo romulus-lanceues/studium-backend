@@ -15,7 +15,7 @@ import java.io.IOException;
 @Component
 public class MyExceptionTranslationFilter implements AuthenticationEntryPoint, AccessDeniedHandler {
 
-    //Authentication
+    //Authentication (AuthenticationEntryPoint)
     @Override
     public void commence (HttpServletRequest request,
                           HttpServletResponse response,
@@ -45,7 +45,7 @@ public class MyExceptionTranslationFilter implements AuthenticationEntryPoint, A
 
     }
 
-    //Authorization
+    //Authorization (AccessDeniedHandler)
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, org.springframework.security.access.AccessDeniedException accessDeniedException) throws IOException, ServletException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);

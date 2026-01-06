@@ -1,7 +1,7 @@
 package com.lancea.studium.studium_api.security;
 
+import com.lancea.studium.studium_api.config.CookieUtil;
 import com.lancea.studium.studium_api.exception.InvalidJwtTokenException;
-import com.lancea.studium.studium_api.exception.TokenExpiredException;
 import com.lancea.studium.studium_api.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -9,13 +9,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -25,10 +23,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final CookieUtil cookieUtil;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService){
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService, CookieUtil cookieUtil){
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.cookieUtil = cookieUtil;
     }
 
     @Override
@@ -39,18 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("Request URI: " + request.getRequestURI());
         System.out.println("Request Method: " + request.getMethod());
 
-        //Retrieve the Auth header
-        final String authHeader = request.getHeader("Authorization");
-
-
-        //Check if the header contains something
-        if(authHeader == null || !authHeader.startsWith("Bearer ")){
-            filterChain.doFilter(request, response); //Continue without authentication
+        if(request.getRequestURI().contains("/api/v1/auth")){
+            filterChain.doFilter(request, response);
             return;
         }
 
-        //Extract the token and remove the "Bearer " prefix
-        final String jwtToken = authHeader.substring(7);
+        //Retrieve cookies
+        final String jwtToken = cookieUtil.getJwtFrom(request);
 
         try{
 

@@ -1,7 +1,6 @@
 package com.lancea.studium.studium_api.repository;
 
 import com.lancea.studium.studium_api.entity.SessionStatus;
-import com.lancea.studium.studium_api.entity.SessionType;
 import com.lancea.studium.studium_api.entity.StudySession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

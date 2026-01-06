@@ -38,20 +38,24 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
+    private final CookieUtil cookieUtil;
+
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final AccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(UserDetailsService userDetailsService, JwtService jwtService,
-                          AuthenticationEntryPoint authenticationEntryPoint, AccessDeniedHandler accessDeniedHandler){
+                          AuthenticationEntryPoint authenticationEntryPoint, AccessDeniedHandler accessDeniedHandler,
+                          CookieUtil cookieUtil){
         this.userDetailsService = userDetailsService;
         this.jwtService = jwtService;
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
+        this.cookieUtil = cookieUtil;
     }
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(){
-        return new JwtAuthenticationFilter(jwtService, userDetailsService);
+        return new JwtAuthenticationFilter(jwtService, userDetailsService, cookieUtil );
     }
 
     @Bean
