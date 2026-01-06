@@ -1,6 +1,10 @@
 package com.lancea.studium.studium_api.security;
 
+import com.lancea.studium.studium_api.config.CookieUtil;
+import com.lancea.studium.studium_api.exception.InvalidJwtTokenException;
 import com.lancea.studium.studium_api.service.JwtService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,7 +14,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -20,10 +23,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final CookieUtil cookieUtil;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService){
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService, CookieUtil cookieUtil){
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.cookieUtil = cookieUtil;
     }
 
     @Override
@@ -34,49 +39,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("Request URI: " + request.getRequestURI());
         System.out.println("Request Method: " + request.getMethod());
 
-        //Retrieve the Auth header
-        final String authHeader = request.getHeader("Authorization");
-
-        //Check if the header contains something
-        if(authHeader == null || !authHeader.startsWith("Bearer ")){
-            filterChain.doFilter(request, response); //Continue without authentication
+        if(request.getRequestURI().contains("/api/v1/auth")){
+            filterChain.doFilter(request, response);
             return;
         }
 
-        //Extract the token and remove the "Bearer " prefix
-        final String jwt = authHeader.substring(7);
+        //Retrieve cookies
+        final String jwtToken = cookieUtil.getJwtFrom(request);
 
-        //Extract email from the token
-        final String email = jwtService.getEmailFromToken(jwt);
+        try{
 
-        //Verify the email and if it's not already authenticated
-        if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
-            //Load User Details from database for extra security
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            //Extract email from the token
+            final String email = jwtService.getEmailFromToken(jwtToken);
 
-            //Validate credentials
-            if(jwtService.validateToken(jwt, userDetails)){
+            //Verify the email and if it's not already authenticated
+            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
+                //Load User Details from database for extra security
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                System.out.println("Token Validation Successful");
-                System.out.println(userDetails.getAuthorities());
+                //Validate credentials
+                if(jwtService.validateToken(jwtToken, userDetails)){
 
-                //If passed create an authentication token
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, //User info
-                        null, // credentials (not needed after authentication)
-                        userDetails.getAuthorities()
-                );
+                    System.out.println("Token Validation Successful");
+                    System.out.println(userDetails.getAuthorities());
 
-                //Set additional details
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                    //If passed create an authentication token
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, //User info
+                            null, // credentials (not needed after authentication)
+                            userDetails.getAuthorities()
+                    );
 
-                //Update Security Context
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    //Set additional details
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+
+                    //Update Security Context
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+
+        } catch (ExpiredJwtException exception) {
+            request.setAttribute("REQUEST_EXCEPTION", exception);
+            throw exception;
+        } catch (JwtException exception){
+            request.setAttribute("REQUEST_EXCEPTION", exception);
+            throw new InvalidJwtTokenException("Invalid");
         }
 
         filterChain.doFilter(request, response);
+
     }
 }

@@ -1,14 +1,21 @@
 package com.lancea.studium.studium_api.service;
 
+import com.lancea.studium.studium_api.config.CookieUtil;
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
 import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.entity.RefreshToken;
 import com.lancea.studium.studium_api.entity.Role;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
-import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.UserRepository;
+import com.lancea.studium.studium_api.security.MyUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,20 +28,24 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
+    private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final CookieUtil cookieUtil;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder
-    , JwtService jwtService){
+    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository,
+                       PasswordEncoder passwordEncoder, JwtService jwtService, CookieUtil cookieUtil){
+        this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.cookieUtil = cookieUtil;
 
     }
 
     //Creating a normal user
-    public AuthResponse createUser(RegisterRequest registerRequest){
+    public long createUser(RegisterRequest registerRequest, HttpServletResponse response){
 
         //Check if the email already exists
         Optional<User> user = userRepository.findByEmail(registerRequest.email());
@@ -53,10 +64,17 @@ public class AuthService {
 
         userRepository.save(newUser);
 
-        return new AuthResponse(newUser.getId(), newUser.getEmail(), newUser.getFullName(), null);
+        //       ===TOKEN CREATION FOR ACCOUNT CREATION NOT YET IMPLEMENTED ===
+
+        String jwtToken = jwtService.generateJwtToken(newUser);
+        String refreshToken = jwtService.generateRefreshToken(newUser.getId());
+
+        cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+
+        return newUser.getId();
     }
 
-    //Create admin account
+    //Create admin account (Not yet used)
     public AuthResponse createAdminAccount(RegisterRequest registerRequest){
         Optional<User> existingUser = userRepository.findByEmail(registerRequest.email());
 
@@ -73,7 +91,7 @@ public class AuthService {
 
         userRepository.save(newAdminAccount);
 
-        return new AuthResponse(newAdminAccount.getId(), newAdminAccount.getEmail(), newAdminAccount.getFullName(), null);
+        return new AuthResponse("User created");
     }
 
     //Used to hash password during signup
@@ -81,19 +99,27 @@ public class AuthService {
         return passwordEncoder.encode(rawPassword);
     }
 
-    public AuthResponse verifyCredentials(LoginRequest loginRequest){
 
-        Optional<User> existingUser = userRepository.findByEmail(loginRequest.email());
+    //Login method
+    public void verifyCredentials(LoginRequest loginRequest, HttpServletResponse response){
 
-        User retrievedUser = existingUser.orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
+            //Authenticate user using Spring Security
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                    loginRequest.email(),
+                    loginRequest.password()
+            );
 
-        if(!verifyPassword(loginRequest.password(), retrievedUser.getPassword())){
-            throw new UnauthorizedException("Incorrect Password");
-        }
+            Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
-        String token = jwtService.generateJwtToken(existingUser.get());
+            MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
+            System.out.println(userDetails.getUsername());
+            User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
 
-        return new AuthResponse(retrievedUser.getId(), retrievedUser.getEmail(), retrievedUser.getFullName(), token);
+            String jwtToken = jwtService.generateJwtToken(retrievedUser);
+            String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
+
+            cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+
     }
 
     //Used to verify the password during login
@@ -116,4 +142,39 @@ public class AuthService {
 
         return authResponseBody;
     }
+
+    public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response){
+
+        //Extract refresh token from the cookie
+        String existingRefreshTokenFromCookie = cookieUtil.getRefreshTokenFromCookie(request);
+
+        if(existingRefreshTokenFromCookie.isEmpty()){
+            throw  new ResourceNotFoundException("No token provided");
+        }
+
+        //Verify the refresh token and return the RefreshToken object that'll be used for the creation of new tokens
+         RefreshToken oldRefreshToken = jwtService.verifyRefreshToken(existingRefreshTokenFromCookie);
+
+        jwtService.revokeRefreshToken(oldRefreshToken.getToken());
+
+        User user = userRepository.findById(oldRefreshToken.getUserId()).orElseThrow( () -> new ResourceNotFoundException("User doesn't exist"));
+
+        String newAccessToken = jwtService.generateJwtToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user.getId());
+
+        cookieUtil.addJwtCookie(response, newAccessToken);
+        cookieUtil.addRefreshTokenCookie(response, newRefreshToken);
+    }
+
+    public void logoutUser(HttpServletRequest request, HttpServletResponse response){
+        String refreshToken = cookieUtil.getRefreshTokenFromCookie(request);
+
+        //Revoke refresh token
+        if(!refreshToken.isEmpty()){
+            jwtService.revokeRefreshToken(refreshToken);
+        }
+
+        cookieUtil.deleteBothCookies(response);
+    }
+
 }

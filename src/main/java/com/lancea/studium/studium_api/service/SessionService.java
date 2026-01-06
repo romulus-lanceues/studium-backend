@@ -4,6 +4,7 @@ import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
 import com.lancea.studium.studium_api.dto.response.SessionResponse;
 import com.lancea.studium.studium_api.entity.SessionStatus;
+import com.lancea.studium.studium_api.entity.SessionType;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.entity.Subject;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
@@ -19,17 +20,22 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class SessionService {
 
     private final SubjectRepository subjectRepository;
     private final StudySessionRepository studySessionRepository;
+    private final PomodoroSessionCacheService pomodoroSessionCacheService;
 
-    public SessionService(SubjectRepository subjectRepository, StudySessionRepository studySessionRepository){
+    public SessionService(SubjectRepository subjectRepository, StudySessionRepository studySessionRepository,
+                          PomodoroSessionCacheService pomodoroSessionCacheService){
         this.subjectRepository = subjectRepository;
         this.studySessionRepository = studySessionRepository;
+        this.pomodoroSessionCacheService = pomodoroSessionCacheService;
     }
 
 
@@ -164,11 +170,34 @@ public class SessionService {
         session.setSessionStatus(SessionStatus.COMPLETED);
         studySessionRepository.save(session);
 
+        //Add the completed session to cache
+        pomodoroSessionCacheService.addCompletedSession(userId, session.getId());
+
+        //Return a break type response
+        SessionType breakType = pomodoroSessionCacheService.determineBreakType(userId);
+
         responseBody.put("sessionId", session.getId() );
         responseBody.put("status", session.getSessionStatus());
+        responseBody.put("break", breakType);
+
 
         return responseBody;
     }
+
+    /*
+        Database approach without Redis
+
+        private boolean eligibleForALongBreak(){
+        //Query for the past completed sessions within 2 hours
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
+        List<StudySession> completedSessionsForThePast2Hours = studySessionRepository.findRecentCompletedSessions(cutoff, SessionStatus.COMPLETED);
+
+        //If sessions.length < 4 return false
+        return completedSessionsForThePast2Hours.size() == 4;
+
+    }
+     */
+
 
     public SessionResponse cancelRequest(Long sessionId, UserDetails userDetails){
         StudySession session = studySessionRepository.findByIdWithSubjectAndUser(sessionId).orElseThrow( () -> new ResourceNotFoundException("Session not found"));
@@ -196,4 +225,5 @@ public class SessionService {
         return new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getSessionStatus(), session.getStartTime());
 
     }
+
 }

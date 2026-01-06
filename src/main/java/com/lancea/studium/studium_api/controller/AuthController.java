@@ -3,19 +3,18 @@ package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.request.ValidationGroups;
 import com.lancea.studium.studium_api.dto.response.AuthResponse;
-import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -32,37 +31,40 @@ public class AuthController {
     //Random Endpoint to test if the API is up and running
     @GetMapping("/test")
     public AuthResponse apiTest(){
-        return new AuthResponse(000L, "API up and working", "studium API", null);
+        return new AuthResponse("success");
     }
 
     //Account Registration Controller
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> create(
-           @Validated @RequestBody RegisterRequest registerRequest){
+            @Validated @RequestBody RegisterRequest registerRequest,
+            HttpServletResponse response){
 
         //Delegate the creation of new user to the service method
-        AuthResponse createdUser = authService.createUser(registerRequest);
+        long newUserId = authService.createUser(registerRequest, response);
 
         //Build location URI for new resource
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/user/{id}")
-                .buildAndExpand(createdUser.id())
+                .buildAndExpand(newUserId)
                 .toUri();
 
         //Return ResponseEntity with 201 status
-        return ResponseEntity.created(location).body(createdUser);
+        return ResponseEntity.created(location).body(new AuthResponse("Account created successfully"));
     }
 
     //Login Controller
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> verifyUser(
-            @Validated @RequestBody LoginRequest loginRequest){
+    public ResponseEntity<?> verifyUser(
+            @Validated @RequestBody LoginRequest loginRequest,
+            HttpServletResponse response){
 
         //Delegate the verification to the service
-        AuthResponse verifyInfo = authService.verifyCredentials(loginRequest);
+        authService.verifyCredentials(loginRequest, response);
 
-        return ResponseEntity.ok().body(verifyInfo);
+
+        return ResponseEntity.ok().body(new AuthResponse("Login Successful"));
 
     }
 
@@ -71,6 +73,19 @@ public class AuthController {
         Map<String, Object> authResponseBody = authService.getSpecificUser(userId);
 
         return ResponseEntity.ok(authResponseBody);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<String> refreshToken(HttpServletRequest request, HttpServletResponse response){
+
+        authService.generateNewRefreshToken(request, response);
+        return ResponseEntity.ok("Token generation successful");
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response){
+        authService.logoutUser(request, response);
+        return ResponseEntity.ok("Logout Successfully");
     }
 
 
