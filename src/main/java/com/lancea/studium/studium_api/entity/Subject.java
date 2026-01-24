@@ -55,4 +55,12 @@ public class Subject {
     //Many sessions belong to one subject
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StudySession> sessions = new ArrayList<>();
+
+    public void increasePomodoroCompleted(){
+        this.pomodorosCompleted++;
+    }
+
+    public void increaseStudyTime(int latestStudyTime){
+        this.totalStudyTime = totalStudyTime + latestStudyTime;
+    }
 }

@@ -15,6 +15,7 @@ import com.lancea.studium.studium_api.repository.SubjectRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import java.time.LocalDateTime;
@@ -116,6 +117,8 @@ public class SessionService {
 
         session.setSessionStatus(SessionStatus.PAUSED);
 
+        // ===== INCREASE INTERRUPTION TIME (PAUSE = INTERRUPTION) ======
+
         studySessionRepository.save(session);
 
         responseBody.put("sessionId", session.getId() );
@@ -148,15 +151,20 @@ public class SessionService {
         return responseBody;
     }
 
+    @Transactional
     public Map<String, Object> completeSession(Long sessionId, CompletionRequest completionRequest, UserDetails userDetails){
         Map<String, Object> responseBody = new HashMap<>();
 
-        Long userId = ((MyUserDetails) userDetails).getUserId();
+        Long requestUserId = ((MyUserDetails) userDetails).getUserId();
 
-        //Verify if the session belongs to the user
-        StudySession session = studySessionRepository.findByIdAndUserId(sessionId, userId).orElseThrow(
+        //Get the session with its user and subject
+        StudySession session = studySessionRepository.findByIdWithSubjectAndUser(sessionId).orElseThrow(
                 () -> new UnauthorizedException("This subject doesn't exist or you're not authorized to access it"));
 
+        //Verify if the user is authorized to make changes for this session
+        if(!session.getUser().getId().equals(requestUserId)){
+            throw new UnauthorizedException("You're not authorized to access it");
+        }
 
         LocalDateTime completionTime = LocalDateTime.now();
 
@@ -174,18 +182,26 @@ public class SessionService {
         session.setEndTime(completionTime);
         session.setActualDurationMinutes((int) elapsedMinutes);
         session.setSessionStatus(SessionStatus.COMPLETED);
+
+        //Increase the pomodoros completed for this session's subject
+
+        Subject sessionSubject = session.getSubject();
+        sessionSubject.increasePomodoroCompleted();
+        sessionSubject.increaseStudyTime(session.getActualDurationMinutes());
+
         studySessionRepository.save(session);
+        subjectRepository.save(sessionSubject);
+
 
         //Add the completed session to cache
-        pomodoroSessionCacheService.addCompletedSession(userId, session.getId());
+        pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
 
         //Return a break type response
-        SessionType breakType = pomodoroSessionCacheService.determineBreakType(userId);
+        SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
 
         responseBody.put("sessionId", session.getId() );
         responseBody.put("status", session.getSessionStatus());
         responseBody.put("break", breakType);
-
 
         return responseBody;
     }
