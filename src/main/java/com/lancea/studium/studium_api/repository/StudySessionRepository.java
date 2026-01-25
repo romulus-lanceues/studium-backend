@@ -27,7 +27,11 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     //Checks if the session exists using the userId and scheduleId OPTIONAL return type
     Optional<StudySession> findByIdAndUserId(Long sessionId, Long userId);
 
-    @Query("SELECT s FROM StudySession s WHERE s.startTime >= :cutoff AND s.sessionStatus = :status")
+    //Returns the sessions completed since the passed date and time
+    @Query("SELECT s FROM StudySession s WHERE s.endTime >= :cutoff AND s.sessionStatus = :status")
     List<StudySession> findRecentCompletedSessions(@Param("cutoff")LocalDateTime cutoff, @Param("status") SessionStatus status);
+
+    @Query("SELECT s FROM StudySession s WHERE s.user.id = :id AND s.sessionStatus = :status")
+    List<StudySession> retrieveSessionsWithSpecificStatus( @Param("id") Long userId, @Param("status")SessionStatus status);
 
 }

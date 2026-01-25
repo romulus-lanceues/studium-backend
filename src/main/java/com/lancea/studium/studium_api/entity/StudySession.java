@@ -1,5 +1,6 @@
 package com.lancea.studium.studium_api.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -57,11 +58,13 @@ public class StudySession {
 
     //Many sessions belong to one user
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     //Many sessions belong to one subject
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 

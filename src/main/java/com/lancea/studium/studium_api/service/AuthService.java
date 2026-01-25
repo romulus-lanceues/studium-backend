@@ -64,8 +64,6 @@ public class AuthService {
 
         userRepository.save(newUser);
 
-        //       ===TOKEN CREATION FOR ACCOUNT CREATION NOT YET IMPLEMENTED ===
-
         String jwtToken = jwtService.generateJwtToken(newUser);
         String refreshToken = jwtService.generateRefreshToken(newUser.getId());
 

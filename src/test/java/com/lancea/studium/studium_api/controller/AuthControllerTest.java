@@ -2,6 +2,7 @@ package com.lancea.studium.studium_api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
+import com.lancea.studium.studium_api.dto.request.RegisterRequest;
 import com.lancea.studium.studium_api.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -61,7 +62,7 @@ public class AuthControllerTest {
             return null;
         }).when(authService).verifyCredentials(any(LoginRequest.class), any(HttpServletResponse.class));
 
-        MvcResult result = mockMvc.perform(post("/api/v1/auth//login")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
@@ -94,7 +95,6 @@ public class AuthControllerTest {
         //Verify the service was called exactly once
         verify(authService, times(1)).verifyCredentials(any(LoginRequest.class), any(HttpServletResponse.class));
 
-
     }
 
     @Test
@@ -107,6 +107,56 @@ public class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
          verify(authService, never()).verifyCredentials(any(LoginRequest.class), any(HttpServletResponse.class));
+    }
+
+    @Test
+    void shouldReturnSuccessfulRegistrationProcess() throws Exception{
+        //Setup needed info
+        RegisterRequest registerRequest = new RegisterRequest("themail@mail.com", "652ufnshwwiqd", "DaMan");
+
+        //Create the mock logic for the authService
+        doAnswer(invocation -> {
+            HttpServletResponse response = invocation.getArgument(1);
+
+            //Simulate JWT-Token cookie
+            Cookie jwtCookie = new Cookie("JWT-TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ965678qw7yewgcyg");
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setSecure(true);
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(3600); // 1 hour
+            jwtCookie.setAttribute("SameSite", "Strict");
+            response.addCookie(jwtCookie);
+
+            Cookie refreshCookie = new Cookie("REFRESH-TOKEN", "refresh-token-value-here");
+            refreshCookie.setHttpOnly(true);
+            refreshCookie.setSecure(true);
+            refreshCookie.setPath("/");
+            refreshCookie.setMaxAge(604800); // 7 days
+            refreshCookie.setAttribute("SameSite", "Strict");
+            response.addCookie(refreshCookie);
+
+            return 3L;
+
+        }).when(authService).createUser(any(RegisterRequest.class), any(HttpServletResponse.class));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("Account created successfully"))
+                .andExpect(cookie().exists("JWT-TOKEN"))
+                .andExpect(cookie().exists("REFRESH-TOKEN"))
+                .andExpect(cookie().httpOnly("JWT-TOKEN", true))
+                .andExpect(cookie().httpOnly("REFRESH-TOKEN", true))
+                .andExpect(cookie().secure("JWT-TOKEN", true))
+                .andExpect(cookie().secure("REFRESH-TOKEN", true))
+                .andExpect(cookie().path("JWT-TOKEN", "/"))
+                .andExpect(cookie().path("REFRESH-TOKEN", "/"))
+                .andExpect(cookie().maxAge("JWT-TOKEN", 3600))
+                .andExpect(cookie().maxAge("REFRESH-TOKEN", 604800))
+                .andReturn();
+
+        verify(authService, times(1)).createUser(any(RegisterRequest.class), any(HttpServletResponse.class));
     }
 
 
