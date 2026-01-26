@@ -88,7 +88,7 @@ public class SessionController {
     @PatchMapping("{sessionId}/cancel")
     public ResponseEntity<SessionResponse> cancelSession(@PathVariable Long sessionId,
                                                          @AuthenticationPrincipal UserDetails userDetails){
-        SessionResponse responseBody = sessionService.cancelRequest(sessionId, userDetails);
+        SessionResponse responseBody = sessionService.cancelSession(sessionId, userDetails);
 
         return ResponseEntity.ok(responseBody);
     }

@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 public record SessionResponse(Long id,
                               String subjectName,
                               Integer plannedDurationMinutes,
+                              Integer actualDurationMinutes,
                               SessionStatus sessionStatus,
-                              LocalDateTime startTime) {
+                              LocalDateTime startTime,
+                              LocalDateTime endTime) {
 }

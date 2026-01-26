@@ -1,5 +1,6 @@
 package com.lancea.studium.studium_api.controller;
 
+import com.lancea.studium.studium_api.dto.response.SessionOverviewResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.service.DataService;
 import org.springframework.http.ResponseEntity;
@@ -35,5 +36,13 @@ public class DataController {
     @GetMapping("/cancelled-sessions")
     public ResponseEntity<List<StudySession>> retrieveCancelledSessionsForUser(@AuthenticationPrincipal UserDetails userDetails){
         return ResponseEntity.ok(dataService.getCancelledSessions(userDetails));
+    }
+
+    @GetMapping("/week/overview")
+    public ResponseEntity<SessionOverviewResponse> retrieveSessionOverviewForAWeek(@AuthenticationPrincipal UserDetails userDetails){
+
+        SessionOverviewResponse results = dataService.retrieveSessionsForThisWeek(userDetails);
+
+        return ResponseEntity.ok(results);
     }
 }

@@ -12,12 +12,13 @@ import java.util.Optional;
 
 public interface StudySessionRepository extends JpaRepository<StudySession, Long> {
 
-    //Get session with its subject
-    @Query("SELECT s FROM StudySession s JOIN FETCH s.subject " +
-            "WHERE s.id = :sessionId")
-    Optional<StudySession> getSessionWithSubject (@Param("sessionId") Long subjectId);
 
-    //Get session with its user and subject
+    /*
+        Get session with its user and subject.
+        Used by:
+        * SessionService -  completeSession
+        * SessionService - cancelSession
+     */
     @Query("SELECT s FROM StudySession s JOIN FETCH s.subject JOIN FETCH s.user WHERE s.id = :sessionId")
     Optional<StudySession> findByIdWithSubjectAndUser(@Param("sessionId") Long sessionId);
 
@@ -27,11 +28,32 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     //Checks if the session exists using the userId and scheduleId OPTIONAL return type
     Optional<StudySession> findByIdAndUserId(Long sessionId, Long userId);
 
-    //Returns the sessions completed since the passed date and time
+
+    /*
+        Returns the sessions completed since the passed date and time.
+     */
     @Query("SELECT s FROM StudySession s WHERE s.endTime >= :cutoff AND s.sessionStatus = :status")
     List<StudySession> findRecentCompletedSessions(@Param("cutoff")LocalDateTime cutoff, @Param("status") SessionStatus status);
 
+
+    /*
+        Retrieves sessions
+     */
     @Query("SELECT s FROM StudySession s WHERE s.user.id = :id AND s.sessionStatus = :status")
     List<StudySession> retrieveSessionsWithSpecificStatus( @Param("id") Long userId, @Param("status")SessionStatus status);
+
+
+    /*
+        Used to retrieve session with both COMPLETED and CANCELLED status for a specific time period.
+        Used by:
+        * DataService - retrieveSessionsForThisWeek
+     */
+    @Query("SELECT s FROM StudySession s JOIN FETCH s.subject WHERE s.endTime >= :startDate "
+            + "AND s.endTime <= :endDate AND s.sessionStatus IN :statuses AND s.user.id = :userId")
+    List<StudySession> retrieveCompletedAndCancelledSessionsForASpecificTimePeriod( @Param("startDate") LocalDateTime starDate,
+                                                                      @Param("endDate") LocalDateTime endDate, @Param("statuses") List<SessionStatus> statuses,
+                                                                      @Param("userId") Long userId);
+
+
 
 }

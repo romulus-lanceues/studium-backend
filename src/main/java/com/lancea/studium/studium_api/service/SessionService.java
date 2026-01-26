@@ -68,7 +68,7 @@ public class SessionService {
         studySessionRepository.save(newSession);
 
         return new SessionResponse(newSession.getId(), newSession.getSubject().getName(),
-                newSession.getPlannedDurationMinutes(),newSession.getSessionStatus(), newSession.getCreatedAt());
+                newSession.getPlannedDurationMinutes(), newSession.getActualDurationMinutes(), newSession.getSessionStatus(), newSession.getCreatedAt(), newSession.getEndTime());
     }
 
     public SessionResponse getSession(Long sessionId){
@@ -76,7 +76,7 @@ public class SessionService {
         StudySession session = studySessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Session doesn't exist"));
 
         return new SessionResponse(session.getId(), session.getSubject().getName(),
-                session.getPlannedDurationMinutes(), session.getSessionStatus(), session.getStartTime() );
+                session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime() );
     }
 
     public Map<String, Object> addInterruption (Long sessionId, UserDetails userDetails){
@@ -221,7 +221,7 @@ public class SessionService {
      */
 
 
-    public SessionResponse cancelRequest(Long sessionId, UserDetails userDetails){
+    public SessionResponse cancelSession(Long sessionId, UserDetails userDetails){
         StudySession session = studySessionRepository.findByIdWithSubjectAndUser(sessionId).orElseThrow( () -> new ResourceNotFoundException("Session not found"));
 
         //Verify that the session belongs to the user
@@ -244,7 +244,8 @@ public class SessionService {
 
         studySessionRepository.save(session);
 
-        return new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getSessionStatus(), session.getStartTime());
+        return new SessionResponse(session.getId(), session.getSubject().getName(),
+                session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime());
 
     }
 
