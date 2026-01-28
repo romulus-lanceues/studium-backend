@@ -3,27 +3,24 @@ package com.lancea.studium.studium_api.service;
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
 import com.lancea.studium.studium_api.dto.response.SessionResponse;
-import com.lancea.studium.studium_api.entity.SessionStatus;
-import com.lancea.studium.studium_api.entity.SessionType;
-import com.lancea.studium.studium_api.entity.StudySession;
-import com.lancea.studium.studium_api.entity.Subject;
+import com.lancea.studium.studium_api.entity.*;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
 import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.StudySessionRepository;
 import com.lancea.studium.studium_api.repository.SubjectRepository;
+import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class SessionService {
@@ -31,12 +28,14 @@ public class SessionService {
     private final SubjectRepository subjectRepository;
     private final StudySessionRepository studySessionRepository;
     private final PomodoroSessionCacheService pomodoroSessionCacheService;
+    private final UserRepository userRepository;
 
     public SessionService(SubjectRepository subjectRepository, StudySessionRepository studySessionRepository,
-                          PomodoroSessionCacheService pomodoroSessionCacheService){
+                          PomodoroSessionCacheService pomodoroSessionCacheService, UserRepository userRepository){
         this.subjectRepository = subjectRepository;
         this.studySessionRepository = studySessionRepository;
         this.pomodoroSessionCacheService = pomodoroSessionCacheService;
+        this.userRepository = userRepository;
     }
 
     /*
@@ -65,10 +64,31 @@ public class SessionService {
                 .user(targetSubject.getUser())
                 .build();
 
+        //Logic for the streak
+        configureUserStreak(targetSubject.getUser());
+
         studySessionRepository.save(newSession);
 
         return new SessionResponse(newSession.getId(), newSession.getSubject().getName(),
                 newSession.getPlannedDurationMinutes(), newSession.getActualDurationMinutes(), newSession.getSessionStatus(), newSession.getCreatedAt(), newSession.getEndTime());
+    }
+
+    private void configureUserStreak(User user){
+
+        if(user.getLastSession() != null){
+            if (user.getLastSession().toLocalDate().isBefore(LocalDate.now())) {
+
+                user.setLastSession(LocalDateTime.now());
+                user.increaseUserStreak();
+
+                userRepository.save(user);
+
+                return;
+            }
+        }
+
+        user.setLastSession(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     public SessionResponse getSession(Long sessionId){

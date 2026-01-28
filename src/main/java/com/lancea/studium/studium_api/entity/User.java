@@ -46,6 +46,13 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "streak")
+    @Builder.Default
+    private Integer streak = 0;
+
+    @Column(name = "last_session")
+    private LocalDateTime lastSession;
+
     //Relationships:
 
     //One user has many subjects
@@ -55,5 +62,9 @@ public class User {
     //One user has many sessions
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StudySession> sessions = new ArrayList<>();
+
+    public void increaseUserStreak(){
+        streak++;
+    }
 
 }
