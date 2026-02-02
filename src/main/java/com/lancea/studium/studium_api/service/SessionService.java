@@ -76,19 +76,19 @@ public class SessionService {
     private void configureUserStreak(User user){
 
         if(user.getLastSession() != null){
-            if (user.getLastSession().toLocalDate().isBefore(LocalDate.now())) {
 
-                user.setLastSession(LocalDateTime.now());
+            if(user.getLastSession().equals(LocalDate.now())) return;
+
+            if (user.getLastSession().plusDays(1).isEqual(LocalDate.now())) {
+
+                user.setLastSession(LocalDate.now());
                 user.increaseUserStreak();
 
                 userRepository.save(user);
 
-                return;
             }
         }
 
-        user.setLastSession(LocalDateTime.now());
-        userRepository.save(user);
     }
 
     public SessionResponse getSession(Long sessionId){
