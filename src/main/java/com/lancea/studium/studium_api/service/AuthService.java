@@ -8,14 +8,17 @@ import com.lancea.studium.studium_api.entity.RefreshToken;
 import com.lancea.studium.studium_api.entity.Role;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
+import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -107,16 +110,22 @@ public class AuthService {
                     loginRequest.password()
             );
 
-            Authentication authentication = authenticationManager.authenticate(authenticationToken);
+            try{
+                Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
-            MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
-            System.out.println(userDetails.getUsername());
-            User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
+                MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
+                System.out.println(userDetails.getUsername());
+                User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
 
-            String jwtToken = jwtService.generateJwtToken(retrievedUser);
-            String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
+                String jwtToken = jwtService.generateJwtToken(retrievedUser);
+                String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
 
-            cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+                cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+            } catch (BadCredentialsException e) {
+                throw new UnauthorizedException("Invalid email or password");
+            } catch (AuthenticationException e) {
+                throw new UnauthorizedException("Authentication error");
+            }
 
     }
 
