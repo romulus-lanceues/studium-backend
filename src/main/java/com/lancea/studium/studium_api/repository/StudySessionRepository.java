@@ -54,6 +54,13 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
                                                                       @Param("endDate") LocalDateTime endDate, @Param("statuses") List<SessionStatus> statuses,
                                                                       @Param("userId") Long userId);
 
-
-
+    /*
+        Used to retrieve the completed sessions of a specific user for today
+     */
+    @Query("""
+            SELECT s FROM StudySession s WHERE s.user.id = :userId AND s.endTime >= :startOfTheDay
+            AND s.endTime < :endOfTheDay AND s.sessionStatus = :status
+            """)
+    List<StudySession> retrieveCompletedSessionsToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
+                                                      @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("status") SessionStatus status);
 }

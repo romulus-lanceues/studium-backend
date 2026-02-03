@@ -1,5 +1,6 @@
 package com.lancea.studium.studium_api.controller;
 
+import com.lancea.studium.studium_api.dto.response.DashboardResponse;
 import com.lancea.studium.studium_api.dto.response.SessionOverviewResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.service.DataService;
@@ -21,6 +22,12 @@ public class DataController {
 
     public DataController(DataService dataService){
         this.dataService = dataService;
+    }
+
+    //Dashboard Controller
+    @GetMapping("/dashboard")
+    public ResponseEntity<DashboardResponse> retrieveDataNeededForDashboard(@AuthenticationPrincipal UserDetails userDetails){
+        return ResponseEntity.ok(dataService.retrieveDataNeededForDashboard(userDetails));
     }
 
     @GetMapping("/completed-sessions")
