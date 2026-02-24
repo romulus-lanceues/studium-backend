@@ -5,7 +5,7 @@ import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
 import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
 import com.lancea.studium.studium_api.entity.RefreshToken;
-import com.lancea.studium.studium_api.entity.Role;
+import com.lancea.studium.studium_api.shared.enums.Role;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
 import com.lancea.studium.studium_api.exception.UnauthorizedException;

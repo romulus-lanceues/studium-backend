@@ -1,4 +1,4 @@
-package com.lancea.studium.studium_api.dto.response;
+package com.lancea.studium.studium_api.dto.response.bundled_response;
 
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 

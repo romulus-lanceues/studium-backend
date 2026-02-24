@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.repository;
 
-import com.lancea.studium.studium_api.entity.SessionStatus;
+import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,7 +80,10 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             AND s.startTime >= :startOfTheDay AND s.startTime < :endOfTheDay 
             AND s.sessionStatus IN :statuses
             """)
-    Page<StudySession> retrieveSessionsForToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
+    Page<StudySession> findSessionsForToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
                                                 @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("statuses") List<SessionStatus> statuses, Pageable pageable);
+
+    @Query("SELECT s FROM StudySession s WHERE s.subject.id = :subjectId")
+    Page<StudySession> findHistoryForSubject(@Param("subjectId") Long subjectId, Pageable pageable);
 
 }

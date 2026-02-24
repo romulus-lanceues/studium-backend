@@ -104,7 +104,15 @@ public class SessionController {
 
     }
 
+    @GetMapping("{subjectId}/history")
+    public ResponseEntity<PagedResponse<SessionResponse>> subjectSessionHistory( @PathVariable Long subjectId,
+                                                                                 @RequestParam(defaultValue = "0") int pageNumber,
+                                                                                @RequestParam(defaultValue = "5") int pageSize) {
 
+        PagedResponse<SessionResponse> responseBody = sessionService.retrieveSubjectSessionHistory(subjectId, pageNumber, pageSize);
+
+        return ResponseEntity.ok(responseBody);
+    }
 
 
 }

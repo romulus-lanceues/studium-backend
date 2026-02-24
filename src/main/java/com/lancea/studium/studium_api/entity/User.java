@@ -1,6 +1,8 @@
 package com.lancea.studium.studium_api.entity;
 
 
+import com.lancea.studium.studium_api.shared.enums.Role;
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements Streakable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -63,7 +65,7 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StudySession> sessions = new ArrayList<>();
 
-    public void increaseUserStreak(){
+    public void increaseStreak(){
         streak++;
     }
 

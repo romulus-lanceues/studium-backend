@@ -4,7 +4,7 @@ import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardRes
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
-import com.lancea.studium.studium_api.entity.SessionStatus;
+import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;

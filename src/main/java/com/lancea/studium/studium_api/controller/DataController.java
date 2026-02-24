@@ -3,7 +3,7 @@ package com.lancea.studium.studium_api.controller;
 import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
-import com.lancea.studium.studium_api.dto.response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.service.DataService;
@@ -40,8 +40,8 @@ public class DataController {
     }
 
     @GetMapping("/recent-sessions")
-    public ResponseEntity<List<StudySession>> retrieveRecentSessions(@AuthenticationPrincipal UserDetails userDetails){
-        return ResponseEntity.ok(sessionService.getRecentCompletedSessions(userDetails));
+    public ResponseEntity<List<StudySession>> retrieveRecentSessions(){
+        return ResponseEntity.ok(sessionService.getRecentCompletedSessions());
     }
 
     @GetMapping("/cancelled-sessions")

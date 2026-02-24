@@ -1,13 +1,13 @@
 package com.lancea.studium.studium_api.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.lancea.studium.studium_api.shared.enums.SessionStatus;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "study_sessions")

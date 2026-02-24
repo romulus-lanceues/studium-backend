@@ -3,7 +3,7 @@ package com.lancea.studium.studium_api.service;
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
-import com.lancea.studium.studium_api.dto.response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.*;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
@@ -13,10 +13,14 @@ import com.lancea.studium.studium_api.repository.StudySessionRepository;
 import com.lancea.studium.studium_api.repository.SubjectRepository;
 import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
+import com.lancea.studium.studium_api.shared.enums.SessionStatus;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
 import com.lancea.studium.studium_api.util.UserDetailsUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,8 +81,7 @@ public class SessionService {
 
         studySessionRepository.save(newSession);
 
-        return new SessionResponse(newSession.getId(), newSession.getSubject().getName(),
-                newSession.getPlannedDurationMinutes(), newSession.getActualDurationMinutes(), newSession.getSessionStatus(), newSession.getCreatedAt(), newSession.getEndTime());
+        return SessionResponse.from(newSession);
     }
 
 
@@ -87,8 +90,7 @@ public class SessionService {
 
         StudySession session = studySessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Session doesn't exist"));
 
-        return new SessionResponse(session.getId(), session.getSubject().getName(),
-                session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime() );
+        return  SessionResponse.from(session);
     }
 
     public Map<String, Object> addInterruption (Long sessionId, UserDetails userDetails){
@@ -195,18 +197,20 @@ public class SessionService {
         session.setActualDurationMinutes((int) elapsedMinutes);
         session.setSessionStatus(SessionStatus.COMPLETED);
 
-        //Increase the pomodoros completed for this session's subject
-
+        //Retrieve session subject
         Subject sessionSubject = session.getSubject();
         sessionSubject.increasePomodoroCompleted();
         sessionSubject.increaseStudyTime(session.getActualDurationMinutes());
-        sessionSubject.setLastSession(LocalDate.now());
+        configureStreak(sessionSubject);
 
-        //Logic for the streak
-        configureUserStreak(session.getUser());
+        //Retrieve session user
+        User sessionUser = session.getUser();
+        configureStreak(sessionUser);
+
 
         studySessionRepository.save(session);
         subjectRepository.save(sessionSubject);
+        userRepository.save(sessionUser);
 
 
         //Add the completed session to cache
@@ -222,27 +226,21 @@ public class SessionService {
         return responseBody;
     }
 
-    private void configureUserStreak(User user){
+    public void configureStreak(Streakable streakable){
 
-        if(user.getLastSession() != null){
+        LocalDate today = LocalDate.now();
+        if(streakable.getLastSession() != null){
 
-            if(user.getLastSession().equals(LocalDate.now())) return;
+            if(streakable.getLastSession().equals(today)) return;
 
-            if (user.getLastSession().plusDays(1).isEqual(LocalDate.now())) {
-
-                user.setLastSession(LocalDate.now());
-                user.increaseUserStreak();
-
-                userRepository.save(user);
-                return;
+            if(streakable.getLastSession().plusDays(1).isEqual(today)) {
+                streakable.increaseStreak();
+                streakable.setLastSession(today);
             }
 
-            //If not reset the streak
-            user.setStreak(0);
-            user.setLastSession(LocalDate.now());
-            userRepository.save(user);
+            streakable.setStreak(0);
+            streakable.setLastSession(today);
         }
-
     }
 
     /*
@@ -283,17 +281,15 @@ public class SessionService {
 
         studySessionRepository.save(session);
 
-        return new SessionResponse(session.getId(), session.getSubject().getName(),
-                session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime());
-
+        return SessionResponse.from(session);
     }
 
     public PagedResponse<SessionResponse> getAllSessionsForToday(UserDetails userDetails, int pageNumber, int pageSize){
         Long userId = UserDetailsUtils.extractUserId(userDetails);
 
-        Pageable pageNumberAndSize = PageRequest.of(pageNumber, pageNumber);
+        Pageable pageNumberAndSize = PageRequest.of(pageNumber, pageSize);
 
-        Page<StudySession> retrievedSessionForToday =  studySessionRepository.retrieveSessionsForToday(userId, LocalDate.now().atStartOfDay(),
+        Page<StudySession> retrievedSessionForToday =  studySessionRepository.findSessionsForToday(userId, LocalDate.now().atStartOfDay(),
                 LocalDate.now().atTime(LocalTime.MAX),
                 Arrays.asList(SessionStatus.COMPLETED, SessionStatus.CANCELLED, SessionStatus.IN_PROGRESS),
                 pageNumberAndSize
@@ -312,10 +308,7 @@ public class SessionService {
         return studySessionRepository.retrieveSessionsWithSpecificStatus(userId, SessionStatus.COMPLETED);
     }
 
-    public List<StudySession> getRecentCompletedSessions(UserDetails userDetails){
-
-        Long userId = UserDetailsUtils.extractUserId(userDetails);
-
+    public List<StudySession> getRecentCompletedSessions(){
         return studySessionRepository.findRecentCompletedSessions(LocalDateTime.now().minusHours(1), SessionStatus.COMPLETED);
     }
 
@@ -343,15 +336,26 @@ public class SessionService {
 
         for(StudySession session : sessions){
             if(session.getSessionStatus().equals(SessionStatus.COMPLETED)) {
-                completedSessions.add(new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime()));
+                completedSessions.add(SessionResponse.from(session));
                 continue;
             }
 
-            cancelledSessions.add(new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime()));
+            cancelledSessions.add(SessionResponse.from(session));
         }
 
 
         return  new SessionOverviewResponse(completedSessions.size(), cancelledSessions.size(), completedSessions, cancelledSessions);
+    }
+
+    public PagedResponse<SessionResponse> retrieveSubjectSessionHistory(Long subjectId, int pageNumber, int pageSize){
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+        Page<StudySession> retrievedSessions = studySessionRepository.findHistoryForSubject(subjectId, pageable);
+
+        Page<SessionResponse> convertSessionsToSessionResponse = retrievedSessions.map(SessionResponse::from);
+
+        return PagedResponse.from(convertSessionsToSessionResponse);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.lancea.studium.studium_api.entity;
 
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Subject {
+public class Subject implements Streakable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,6 +45,10 @@ public class Subject {
     @Column(name = "last_session")
     private LocalDate lastSession;
 
+    @Column(name = "streak")
+    @Builder.Default
+    private Integer streak = 0;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,5 +70,9 @@ public class Subject {
 
     public void increaseStudyTime(int latestStudyTime){
         this.totalStudyTime = totalStudyTime + latestStudyTime;
+    }
+
+    public void increaseStreak(){
+        streak++;
     }
 }
