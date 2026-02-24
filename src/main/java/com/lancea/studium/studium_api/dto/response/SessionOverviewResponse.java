@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.dto.response;
 
-import com.lancea.studium.studium_api.entity.StudySession;
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 
 import java.util.List;
 

@@ -2,6 +2,8 @@ package com.lancea.studium.studium_api.repository;
 
 import com.lancea.studium.studium_api.entity.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,6 +23,11 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
      */
     @Query("SELECT s FROM StudySession s JOIN FETCH s.subject JOIN FETCH s.user WHERE s.id = :sessionId")
     Optional<StudySession> findByIdWithSubjectAndUser(@Param("sessionId") Long sessionId);
+
+
+    //Consider indexing if the user grows
+    @Query("SELECT COUNT (s) FROM StudySession s WHERE s.user.id = :userId")
+    Long userSessionsCount(@Param("userId") long userId);
 
     //Checks if the session exists using the userId and scheduleId BOOLEAN return value
     boolean existsByIdAndUserId(Long sessionId, Long subjectId);
@@ -58,9 +65,22 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
         Used to retrieve the completed sessions of a specific user for today
      */
     @Query("""
-            SELECT s FROM StudySession s WHERE s.user.id = :userId AND s.endTime >= :startOfTheDay
+            SELECT COUNT (s) FROM StudySession s WHERE s.user.id = :userId AND s.endTime >= :startOfTheDay
             AND s.endTime < :endOfTheDay AND s.sessionStatus = :status
             """)
-    List<StudySession> retrieveCompletedSessionsToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
+    Long countCompletedSessionsToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
                                                       @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("status") SessionStatus status);
+
+
+
+    Page<StudySession> findByUserIdOrderByStartTimeDesc(Long userId, Pageable pageable);
+
+    @Query("""
+            SELECT s FROM StudySession s WHERE s.user.id = :userId 
+            AND s.startTime >= :startOfTheDay AND s.startTime < :endOfTheDay 
+            AND s.sessionStatus IN :statuses
+            """)
+    Page<StudySession> retrieveSessionsForToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
+                                                @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("statuses") List<SessionStatus> statuses, Pageable pageable);
+
 }

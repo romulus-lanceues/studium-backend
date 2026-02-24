@@ -2,7 +2,8 @@ package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
-import com.lancea.studium.studium_api.dto.response.SessionResponse;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.service.SessionService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -92,6 +93,18 @@ public class SessionController {
 
         return ResponseEntity.ok(responseBody);
     }
+
+    @GetMapping("sessions/today")
+    public ResponseEntity<PagedResponse<SessionResponse>> sessionsForToday(@AuthenticationPrincipal UserDetails userDetails,
+                                                          @RequestParam int pageNumber, @RequestBody int pageSize){
+
+        PagedResponse<SessionResponse> responseBody = sessionService.getAllSessionsForToday(userDetails, pageNumber, pageSize);
+
+        return ResponseEntity.ok(responseBody);
+
+    }
+
+
 
 
 }

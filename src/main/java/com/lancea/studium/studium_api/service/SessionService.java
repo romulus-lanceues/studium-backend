@@ -2,7 +2,9 @@ package com.lancea.studium.studium_api.service;
 
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
-import com.lancea.studium.studium_api.dto.response.SessionResponse;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.*;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
@@ -11,16 +13,22 @@ import com.lancea.studium.studium_api.repository.StudySessionRepository;
 import com.lancea.studium.studium_api.repository.SubjectRepository;
 import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
+import com.lancea.studium.studium_api.util.UserDetailsUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
 
 @Service
 public class SessionService {
@@ -50,6 +58,7 @@ public class SessionService {
 
         //Retrieve the user id from the security context
         Long userId = ((MyUserDetails) userDetails).getUserId();
+
         //Check if the subject belongs to the user
         Subject targetSubject = subjectRepository.findByIdAndUserId(startSessionRequest.subjectId(), userId).
                 orElseThrow(() -> new  UnauthorizedException("The subject you're trying to create a schedule doesn't belong to you."));
@@ -64,8 +73,7 @@ public class SessionService {
                 .user(targetSubject.getUser())
                 .build();
 
-        //Logic for the streak
-        configureUserStreak(targetSubject.getUser());
+
 
         studySessionRepository.save(newSession);
 
@@ -73,23 +81,7 @@ public class SessionService {
                 newSession.getPlannedDurationMinutes(), newSession.getActualDurationMinutes(), newSession.getSessionStatus(), newSession.getCreatedAt(), newSession.getEndTime());
     }
 
-    private void configureUserStreak(User user){
 
-        if(user.getLastSession() != null){
-
-            if(user.getLastSession().equals(LocalDate.now())) return;
-
-            if (user.getLastSession().plusDays(1).isEqual(LocalDate.now())) {
-
-                user.setLastSession(LocalDate.now());
-                user.increaseUserStreak();
-
-                userRepository.save(user);
-
-            }
-        }
-
-    }
 
     public SessionResponse getSession(Long sessionId){
 
@@ -208,6 +200,10 @@ public class SessionService {
         Subject sessionSubject = session.getSubject();
         sessionSubject.increasePomodoroCompleted();
         sessionSubject.increaseStudyTime(session.getActualDurationMinutes());
+        sessionSubject.setLastSession(LocalDate.now());
+
+        //Logic for the streak
+        configureUserStreak(session.getUser());
 
         studySessionRepository.save(session);
         subjectRepository.save(sessionSubject);
@@ -224,6 +220,29 @@ public class SessionService {
         responseBody.put("break", breakType);
 
         return responseBody;
+    }
+
+    private void configureUserStreak(User user){
+
+        if(user.getLastSession() != null){
+
+            if(user.getLastSession().equals(LocalDate.now())) return;
+
+            if (user.getLastSession().plusDays(1).isEqual(LocalDate.now())) {
+
+                user.setLastSession(LocalDate.now());
+                user.increaseUserStreak();
+
+                userRepository.save(user);
+                return;
+            }
+
+            //If not reset the streak
+            user.setStreak(0);
+            user.setLastSession(LocalDate.now());
+            userRepository.save(user);
+        }
+
     }
 
     /*
@@ -267,6 +286,72 @@ public class SessionService {
         return new SessionResponse(session.getId(), session.getSubject().getName(),
                 session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime());
 
+    }
+
+    public PagedResponse<SessionResponse> getAllSessionsForToday(UserDetails userDetails, int pageNumber, int pageSize){
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        Pageable pageNumberAndSize = PageRequest.of(pageNumber, pageNumber);
+
+        Page<StudySession> retrievedSessionForToday =  studySessionRepository.retrieveSessionsForToday(userId, LocalDate.now().atStartOfDay(),
+                LocalDate.now().atTime(LocalTime.MAX),
+                Arrays.asList(SessionStatus.COMPLETED, SessionStatus.CANCELLED, SessionStatus.IN_PROGRESS),
+                pageNumberAndSize
+        );
+
+        Page<SessionResponse> convertedStudySessionsToSessionResponse = retrievedSessionForToday.map(SessionResponse::from);
+
+        return PagedResponse.from(convertedStudySessionsToSessionResponse);
+
+    }
+
+    public List<StudySession> getAllCompletedSessionsForUser(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.retrieveSessionsWithSpecificStatus(userId, SessionStatus.COMPLETED);
+    }
+
+    public List<StudySession> getRecentCompletedSessions(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.findRecentCompletedSessions(LocalDateTime.now().minusHours(1), SessionStatus.COMPLETED);
+    }
+
+    public List<StudySession> getCancelledSessions(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.retrieveSessionsWithSpecificStatus(userId, SessionStatus.CANCELLED);
+    }
+
+
+    public SessionOverviewResponse retrieveSessionsForThisWeek(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+
+        LocalDateTime startOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toLocalDate().atStartOfDay();
+
+        LocalDateTime endOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).toLocalDate().atTime(LocalTime.MAX);
+
+        List<StudySession> sessions =  studySessionRepository.retrieveCompletedAndCancelledSessionsForASpecificTimePeriod(startOfTheWeek, endOfTheWeek, Arrays.asList(SessionStatus.COMPLETED, SessionStatus.CANCELLED), userId);
+
+        List<SessionResponse> completedSessions = new ArrayList<>();
+        List<SessionResponse> cancelledSessions = new ArrayList<>();
+
+        for(StudySession session : sessions){
+            if(session.getSessionStatus().equals(SessionStatus.COMPLETED)) {
+                completedSessions.add(new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime()));
+                continue;
+            }
+
+            cancelledSessions.add(new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getActualDurationMinutes(), session.getSessionStatus(), session.getStartTime(), session.getEndTime()));
+        }
+
+
+        return  new SessionOverviewResponse(completedSessions.size(), cancelledSessions.size(), completedSessions, cancelledSessions);
     }
 
 }

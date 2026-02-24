@@ -3,7 +3,7 @@ package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
 import com.lancea.studium.studium_api.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 
 

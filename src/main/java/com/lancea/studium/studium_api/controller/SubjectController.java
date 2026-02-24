@@ -1,8 +1,9 @@
 package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.CreateSubjectRequest;
-import com.lancea.studium.studium_api.dto.response.SubjectResponse;
-import com.lancea.studium.studium_api.security.MyUserDetails;
+import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.SubjectResponse;
 import com.lancea.studium.studium_api.service.SubjectService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,9 +43,9 @@ public class SubjectController {
     }
 
     @GetMapping("/subjects")
-    public ResponseEntity<List<SubjectResponse>> getUserSubjects(@AuthenticationPrincipal UserDetails userDetails){
+    public ResponseEntity<PagedResponse<SubjectResponse>> getUserSubjects(@AuthenticationPrincipal UserDetails userDetails, @RequestParam int pageNumber, @RequestParam int pageSize){
 
-        return ResponseEntity.ok(subjectService.getUserSubjects(userDetails));
+        return ResponseEntity.ok(subjectService.getUserSubjects(userDetails, pageNumber, pageSize));
     }
 
     @GetMapping("{subjectId}")
@@ -53,6 +54,5 @@ public class SubjectController {
 
         return ResponseEntity.ok(responseBody);
     }
-
 
 }

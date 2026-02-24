@@ -3,7 +3,7 @@ package com.lancea.studium.studium_api.service;
 import com.lancea.studium.studium_api.config.CookieUtil;
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
 import com.lancea.studium.studium_api.entity.RefreshToken;
 import com.lancea.studium.studium_api.entity.Role;
 import com.lancea.studium.studium_api.entity.User;
