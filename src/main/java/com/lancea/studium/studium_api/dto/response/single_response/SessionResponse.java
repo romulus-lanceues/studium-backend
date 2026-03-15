@@ -2,6 +2,7 @@ package com.lancea.studium.studium_api.dto.response.single_response;
 
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ public record SessionResponse(Long id,
                               Integer actualDurationMinutes,
                               SessionStatus sessionStatus,
                               String notes,
+                              SessionType type,
                               LocalDateTime startTime,
                               LocalDateTime endTime) {
 
@@ -23,6 +25,7 @@ public record SessionResponse(Long id,
                 studySession.getActualDurationMinutes(),
                 studySession.getSessionStatus(),
                 studySession.getNotes(),
+                studySession.getSessionType(),
                 studySession.getStartTime(),
                 studySession.getEndTime()
         );

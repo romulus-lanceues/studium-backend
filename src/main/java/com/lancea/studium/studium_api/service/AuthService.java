@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.service;
 
-import com.lancea.studium.studium_api.config.CookieUtil;
+import com.lancea.studium.studium_api.util.CookieUtil;
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
 import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
@@ -53,6 +54,7 @@ public class AuthService {
         //Check if the email already exists
         Optional<User> user = userRepository.findByEmail(registerRequest.email());
         if(user.isPresent()){
+
             //Throw a generic ResponseStatusException to avoid many custom exception entity
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
         }
@@ -151,7 +153,6 @@ public class AuthService {
     }
 
     public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response){
-
         //Extract refresh token from the cookie
         String existingRefreshTokenFromCookie = cookieUtil.getRefreshTokenFromCookie(request);
 

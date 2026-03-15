@@ -3,6 +3,7 @@ package com.lancea.studium.studium_api.service;
 import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
@@ -20,7 +21,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Service
 public class DataService {
@@ -90,6 +93,19 @@ public class DataService {
         String studyTime = String.format("%dh %dm", totalStudyTimeForAllTheSubject / 60, totalStudyTimeForAllTheSubject % 60 );
 
         return new SubjectsPageResponse(totalSubjects, totalSessions, studyTime);
+    }
+
+    public Long getUserSessionCount(UserDetails userDetails){
+        long userId = UserDetailsUtils.extractUserId(userDetails);
+        return studySessionRepository.userSessionsCount(userId);
+    }
+
+    public List<CompletedSessionSummary> getMonthlyCompletedSessions (UserDetails userDetails, YearMonth yearMonth){
+
+        long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.getCompletedSessionsForSpecificMonth(userId, yearMonth.getYear(), yearMonth.getMonthValue(),SessionStatus.COMPLETED);
+
     }
 
 }

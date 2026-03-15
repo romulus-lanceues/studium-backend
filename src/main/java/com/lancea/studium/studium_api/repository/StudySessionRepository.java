@@ -1,5 +1,6 @@
 package com.lancea.studium.studium_api.repository;
 
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
 import org.springframework.data.domain.Page;
@@ -71,8 +72,6 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     Long countCompletedSessionsToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
                                                       @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("status") SessionStatus status);
 
-
-
     Page<StudySession> findByUserIdOrderByStartTimeDesc(Long userId, Pageable pageable);
 
     @Query("""
@@ -85,5 +84,23 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
 
     @Query("SELECT s FROM StudySession s WHERE s.subject.id = :subjectId")
     Page<StudySession> findHistoryForSubject(@Param("subjectId") Long subjectId, Pageable pageable);
+
+    @Query("""
+            SELECT
+            new com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary
+            ( CAST( s.endTime AS LocalDate),
+            COUNT(s)
+            )
+            
+            FROM StudySession s WHERE s.user.id = :userId
+             AND YEAR (s.endTime) = :year
+             AND MONTH (s.endTime) = :month
+             AND s.sessionStatus = :status
+             GROUP BY CAST (s.endTime AS LocalDate)
+             ORDER BY CAST (s.endTime AS LocalDate) ASC
+            """)
+    List<CompletedSessionSummary> getCompletedSessionsForSpecificMonth( @Param("userId") Long userId, @Param("year") Integer year,
+                                                                       @Param("month") Integer month, @Param("status") SessionStatus status
+                                                                       );
 
 }

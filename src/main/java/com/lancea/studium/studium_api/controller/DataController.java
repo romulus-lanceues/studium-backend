@@ -4,6 +4,7 @@ import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardRes
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.service.DataService;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -66,5 +68,19 @@ public class DataController {
     @GetMapping("/subjects-data")
     public ResponseEntity<SubjectsPageResponse> getSubjectsDetails(@AuthenticationPrincipal UserDetails userDetails){
         return ResponseEntity.ok(dataService.getSubjectsAndItsInfos(userDetails));
+    }
+
+    //Analytics page controllers
+
+    @GetMapping("/user/total/sessions")
+    public ResponseEntity<Long> getUserTotalSession(@AuthenticationPrincipal UserDetails userDetails){
+
+        return ResponseEntity.ok(dataService.getUserSessionCount(userDetails));
+    }
+
+    @GetMapping("/analytics/monthly/completed")
+    public ResponseEntity<List<CompletedSessionSummary>> retrieveCompletedSessionsThisMonth(@AuthenticationPrincipal UserDetails userDetails, @RequestParam(defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
+        //Call the service
+        return ResponseEntity.ok(dataService.getMonthlyCompletedSessions(userDetails, month));
     }
 }

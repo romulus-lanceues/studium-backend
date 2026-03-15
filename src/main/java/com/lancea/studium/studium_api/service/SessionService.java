@@ -54,17 +54,17 @@ public class SessionService {
         Start a session service
 
         1. Check if the subject belongs to the user
-        2. Create a new session using the details provided in the request
+        2. Create a new session using the details provided in request
         3. Return a request
      */
 
-    public SessionResponse createSession(StartSessionRequest startSessionRequest, UserDetails userDetails){
+    public SessionResponse createSession(Long subjectId, StartSessionRequest startSessionRequest, UserDetails userDetails){
 
         //Retrieve the user id from the security context
         Long userId = ((MyUserDetails) userDetails).getUserId();
 
         //Check if the subject belongs to the user
-        Subject targetSubject = subjectRepository.findByIdAndUserId(startSessionRequest.subjectId(), userId).
+        Subject targetSubject = subjectRepository.findByIdAndUserId(subjectId, userId).
                 orElseThrow(() -> new  UnauthorizedException("The subject you're trying to create a schedule doesn't belong to you."));
 
         //Create a new session object and save to the database
@@ -166,7 +166,7 @@ public class SessionService {
     }
 
     @Transactional
-    public Map<String, Object> completeSession(Long sessionId, CompletionRequest completionRequest, UserDetails userDetails){
+    public Map<String, Object> completeSession(Long sessionId, UserDetails userDetails){
         Map<String, Object> responseBody = new HashMap<>();
 
         Long requestUserId = ((MyUserDetails) userDetails).getUserId();
@@ -182,16 +182,9 @@ public class SessionService {
 
         LocalDateTime completionTime = LocalDateTime.now();
 
-        //Verify if the frontend's total minute is accurate by computing it
         long elapsedMinutes = ChronoUnit.MINUTES.between(session.getStartTime(), completionTime);
 
-        boolean isActualDurationMinutesValid = completionRequest.actualDurationMinutes() == (int) elapsedMinutes;
-
-        /*
-        If isActualDurationMinutesValid is true set the ActualDurationMinutes of the session to the minutes frontend sent
-        If not set use the one backend calculated
-         */
-        session.setActualDurationMinutes(isActualDurationMinutesValid ? completionRequest.actualDurationMinutes() : (int) elapsedMinutes);
+        session.setActualDurationMinutes((int) elapsedMinutes);
 
         session.setEndTime(completionTime);
         session.setActualDurationMinutes((int) elapsedMinutes);
@@ -213,15 +206,22 @@ public class SessionService {
         userRepository.save(sessionUser);
 
 
-        //Add the completed session to cache
-        pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
+        try {
+            //Add the completed session to cache
+            pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
 
-        //Return a break type response
-        SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
+            //Return a break type response
+            SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
+            responseBody.put("break", breakType);
+        }
+        catch (Exception e){
+            throw new ResourceNotFoundException("Error while retrieving break type from cache");
+        }
+
 
         responseBody.put("sessionId", session.getId() );
         responseBody.put("status", session.getSessionStatus());
-        responseBody.put("break", breakType);
+
 
         return responseBody;
     }
@@ -236,10 +236,15 @@ public class SessionService {
             if(streakable.getLastSession().plusDays(1).isEqual(today)) {
                 streakable.increaseStreak();
                 streakable.setLastSession(today);
+
+            } else {
+                streakable.setStreak(0);
+                streakable.setLastSession(today);
             }
 
-            streakable.setStreak(0);
+        } else {
             streakable.setLastSession(today);
+            streakable.setStreak(1);
         }
     }
 

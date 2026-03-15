@@ -39,10 +39,10 @@ public class AuthController {
             @Validated @RequestBody RegisterRequest registerRequest,
             HttpServletResponse response){
 
-        //Delegate the creation of new user to the service method
+        //Delegate the creation of the new user to the service method
         long newUserId = authService.createUser(registerRequest, response);
 
-        //Build location URI for new resource
+        //Build location URI for the new resource
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/user/{id}")

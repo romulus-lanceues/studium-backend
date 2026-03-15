@@ -12,6 +12,7 @@ public record SubjectResponse(Long  subjectId,
                               Integer weeklyGoalSessions,
                               Integer totalStudyTime,
                               Integer pomodorosCompleted,
+                              Integer streak,
                               LocalDate lastSession){
 
 
@@ -24,6 +25,8 @@ public record SubjectResponse(Long  subjectId,
                 subject.getWeeklyGoalSessions(),
                 subject.getTotalStudyTime(),
                 subject.getPomodorosCompleted(),
+                subject.getStreak(),
                 subject.getLastSession());
     }
+
 }

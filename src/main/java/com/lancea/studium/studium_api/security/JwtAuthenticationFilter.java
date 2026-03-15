@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.security;
 
-import com.lancea.studium.studium_api.config.CookieUtil;
+import com.lancea.studium.studium_api.util.CookieUtil;
 import com.lancea.studium.studium_api.exception.InvalidJwtTokenException;
 import com.lancea.studium.studium_api.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;

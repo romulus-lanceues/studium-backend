@@ -62,7 +62,7 @@ public class JwtService {
     public String generateRefreshToken(Long userId){
 
             //Get rid of the existing refresh token of the user
-            refreshTokenRepository.findByUserId(userId).ifPresent( tokenEntity -> refreshTokenRepository.delete(tokenEntity));
+            refreshTokenRepository.findByUserId(userId).ifPresent(refreshTokenRepository::delete);
 
             RefreshToken newRefreshToken = RefreshToken.builder()
                     .userId(userId)
@@ -146,7 +146,6 @@ public class JwtService {
     }
 
     //Revoke refresh token
-
     public void revokeRefreshToken(String token){
 
         refreshTokenRepository.findByToken(token).ifPresent(refreshToken -> {
@@ -156,10 +155,3 @@ public class JwtService {
     }
 
 }
-
-//    public String generateJwtToken(Authentication authentication){
-//        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-//
-//        return Jwts.builder()
-//                .setSubject()
-//    }

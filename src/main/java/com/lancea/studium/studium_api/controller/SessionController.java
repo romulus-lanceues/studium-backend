@@ -26,11 +26,11 @@ public class SessionController {
     }
 
 
-    @PostMapping("/start")
-    public ResponseEntity<SessionResponse> createSession(@RequestBody StartSessionRequest startSessionRequest,
+    @PostMapping("/{subjectId}/start")
+    public ResponseEntity<SessionResponse> createSession(@PathVariable Long subjectId, @RequestBody StartSessionRequest startSessionRequest,
                                                          @AuthenticationPrincipal UserDetails userDetails){
 
-            SessionResponse sessionRequestBody = sessionService.createSession(startSessionRequest, userDetails);
+            SessionResponse sessionRequestBody = sessionService.createSession(subjectId, startSessionRequest, userDetails);
 
             URI sessionLocation = ServletUriComponentsBuilder
                     .fromCurrentContextPath()  //Get context path ex: http://localhost:8080
@@ -78,15 +78,14 @@ public class SessionController {
 
     @PatchMapping("/{sessionId}/completed")
     public ResponseEntity<Map<String, Object>> completeSession(@PathVariable Long sessionId,
-                                                               @RequestBody CompletionRequest completionRequest,
                                                                @AuthenticationPrincipal UserDetails userDetails){
 
-        Map<String, Object> responseBody = sessionService.completeSession(sessionId, completionRequest, userDetails);
+        Map<String, Object> responseBody = sessionService.completeSession(sessionId,userDetails);
 
         return ResponseEntity.ok(responseBody);
     }
 
-    @PatchMapping("{sessionId}/cancel")
+    @PatchMapping("/{sessionId}/cancel")
     public ResponseEntity<SessionResponse> cancelSession(@PathVariable Long sessionId,
                                                          @AuthenticationPrincipal UserDetails userDetails){
         SessionResponse responseBody = sessionService.cancelSession(sessionId, userDetails);
@@ -96,7 +95,7 @@ public class SessionController {
 
     @GetMapping("sessions/today")
     public ResponseEntity<PagedResponse<SessionResponse>> sessionsForToday(@AuthenticationPrincipal UserDetails userDetails,
-                                                          @RequestParam int pageNumber, @RequestBody int pageSize){
+                                                          @RequestParam int pageNumber, @RequestParam int pageSize){
 
         PagedResponse<SessionResponse> responseBody = sessionService.getAllSessionsForToday(userDetails, pageNumber, pageSize);
 
@@ -114,5 +113,6 @@ public class SessionController {
         return ResponseEntity.ok(responseBody);
     }
 
-
 }
+
+//900000
