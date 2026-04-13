@@ -48,11 +48,17 @@ public class SubjectController {
         return ResponseEntity.ok(subjectService.getUserSubjects(userDetails, pageNumber, pageSize));
     }
 
-    @GetMapping("{subjectId}")
+    @GetMapping("/{subjectId}")
     public ResponseEntity<SubjectResponse> getSubject(@PathVariable Long subjectId){
         SubjectResponse responseBody = subjectService.getSubject(subjectId);
 
         return ResponseEntity.ok(responseBody);
+    }
+
+    @DeleteMapping("/delete/{subjectId}")
+    public ResponseEntity<?> deleteSubject(@PathVariable Long subjectId ){
+        subjectService.deleteSubject(subjectId );
+        return ResponseEntity.noContent().build();
     }
 
 }

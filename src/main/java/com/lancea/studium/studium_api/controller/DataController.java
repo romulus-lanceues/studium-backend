@@ -4,9 +4,11 @@ import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardRes
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
+import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.service.DataService;
 import com.lancea.studium.studium_api.service.SessionService;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -78,9 +81,17 @@ public class DataController {
         return ResponseEntity.ok(dataService.getUserSessionCount(userDetails));
     }
 
+    //Subject to change - Will return the date and completed session for that specific date.
     @GetMapping("/analytics/monthly/completed")
     public ResponseEntity<List<CompletedSessionSummary>> retrieveCompletedSessionsThisMonth(@AuthenticationPrincipal UserDetails userDetails, @RequestParam(defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
         //Call the service
-        return ResponseEntity.ok(dataService.getMonthlyCompletedSessions(userDetails, month));
+        return ResponseEntity.ok(sessionService.getMonthlyCompletedSessions(userDetails, month));
     }
+
+
+    @GetMapping("/analytics/subjects/completed-sessions")
+    public ResponseEntity<List<CompletedSessionsPerSubject>> retrieveCompletedSessionsByTimePeriod(@AuthenticationPrincipal UserDetails userDetails, @RequestParam (defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
+        return ResponseEntity.ok(sessionService.getCompletedSessionsByTimePeriod(userDetails, month));
+    }
+
 }

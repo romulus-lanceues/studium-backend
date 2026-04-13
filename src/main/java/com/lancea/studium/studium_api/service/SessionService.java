@@ -4,6 +4,8 @@ import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.*;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
@@ -26,10 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
@@ -361,6 +360,21 @@ public class SessionService {
         Page<SessionResponse> convertSessionsToSessionResponse = retrievedSessions.map(SessionResponse::from);
 
         return PagedResponse.from(convertSessionsToSessionResponse);
+    }
+
+    public List<CompletedSessionSummary> getMonthlyCompletedSessions (UserDetails userDetails, YearMonth yearMonth){
+
+        long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.getCompletedSessionsForSpecificMonth(userId, yearMonth.getYear(), yearMonth.getMonthValue(),SessionStatus.COMPLETED);
+
+    }
+
+    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(UserDetails userDetails, YearMonth yearMonth){
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.getCompletedSessionsByTimePeriod(userId, yearMonth.getYear(), yearMonth.getMonthValue(), SessionStatus.COMPLETED);
+
     }
 
 }

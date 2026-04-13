@@ -1,6 +1,7 @@
 package com.lancea.studium.studium_api.repository;
 
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
 import org.springframework.data.domain.Page;
@@ -102,5 +103,20 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     List<CompletedSessionSummary> getCompletedSessionsForSpecificMonth( @Param("userId") Long userId, @Param("year") Integer year,
                                                                        @Param("month") Integer month, @Param("status") SessionStatus status
                                                                        );
+
+    @Query("""
+            SELECT 
+            new com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject
+            ( s.subject.name, COUNT(s), s.subject.color )
+            
+            FROM StudySession s WHERE s.user.id = :userId
+            AND YEAR (s.endTime) = :year
+            AND MONTH (s.endTime) =:month
+            AND s.sessionStatus = :sessionStatus
+            GROUP BY (s.subject.name, s.subject.color)
+            ORDER BY (s.subject.name) ASC
+            """)
+
+    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(@Param("userId") Long userId, @Param("year") Integer year, @Param("month") Integer month, @Param("sessionStatus") SessionStatus sessionStatus);
 
 }

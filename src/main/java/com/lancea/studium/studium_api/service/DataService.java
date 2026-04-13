@@ -100,12 +100,6 @@ public class DataService {
         return studySessionRepository.userSessionsCount(userId);
     }
 
-    public List<CompletedSessionSummary> getMonthlyCompletedSessions (UserDetails userDetails, YearMonth yearMonth){
 
-        long userId = UserDetailsUtils.extractUserId(userDetails);
-
-        return studySessionRepository.getCompletedSessionsForSpecificMonth(userId, yearMonth.getYear(), yearMonth.getMonthValue(),SessionStatus.COMPLETED);
-
-    }
 
 }

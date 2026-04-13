@@ -75,5 +75,12 @@ public class SubjectService {
         return SubjectResponse.from(subject);
     }
 
+    public void deleteSubject(Long subjectId){
+
+        //Find the subject from the DB first and validate if it exists
+        Subject subject = subjectRepository.findById(subjectId).orElseThrow( () -> new ResourceNotFoundException("Subject not found"));
+
+        subjectRepository.deleteById(subjectId);
+    }
 
 }
