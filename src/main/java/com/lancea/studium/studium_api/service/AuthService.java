@@ -181,6 +181,7 @@ public class AuthService {
         if(!refreshToken.isEmpty()){
             jwtService.revokeRefreshToken(refreshToken);
         }
+        //Add a catch
 
         cookieUtil.deleteBothCookies(response);
     }

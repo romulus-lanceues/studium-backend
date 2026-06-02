@@ -7,5 +7,7 @@ import java.util.List;
 public record SessionOverviewResponse(Integer completedSessionsCount,
                                       Integer cancelledSessionsCount,
                                       List<SessionResponse> completedSessions,
-                                      List<SessionResponse> cancelledSessions) {
+                                      List<SessionResponse> cancelledSessions,
+                                      Integer percentage,
+                                      List<String> changes) {
 }

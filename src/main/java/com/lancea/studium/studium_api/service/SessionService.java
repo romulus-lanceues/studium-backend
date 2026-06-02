@@ -32,6 +32,7 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SessionService {
@@ -330,25 +331,78 @@ public class SessionService {
 
 
         LocalDateTime startOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toLocalDate().atStartOfDay();
-
         LocalDateTime endOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).toLocalDate().atTime(LocalTime.MAX);
 
-        List<StudySession> sessions =  studySessionRepository.retrieveCompletedAndCancelledSessionsForASpecificTimePeriod(startOfTheWeek, endOfTheWeek, Arrays.asList(SessionStatus.COMPLETED, SessionStatus.CANCELLED), userId);
+        LocalDateTime startOfPreviousWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(1).toLocalDate().atStartOfDay();
+        LocalDateTime endOfPreviousWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(1).toLocalDate().with(DayOfWeek.SUNDAY).atTime(LocalTime.MAX);
 
-        List<SessionResponse> completedSessions = new ArrayList<>();
-        List<SessionResponse> cancelledSessions = new ArrayList<>();
 
-        for(StudySession session : sessions){
-            if(session.getSessionStatus().equals(SessionStatus.COMPLETED)) {
-                completedSessions.add(SessionResponse.from(session));
-                continue;
-            }
+        List<StudySession> completedSessionsThisWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfTheWeek, endOfTheWeek, SessionStatus.COMPLETED);
+        List<StudySession> cancelledSessionThisWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfTheWeek, endOfTheWeek, SessionStatus.CANCELLED);
+        List<StudySession> completedSessionsLastWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfPreviousWeek, endOfPreviousWeek, SessionStatus.COMPLETED);
+        List<StudySession> cancelledSessionsLastWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfPreviousWeek, endOfPreviousWeek, SessionStatus.CANCELLED);
 
-            cancelledSessions.add(SessionResponse.from(session));
+        //Modify it to be done at Query level to avoid processing it here
+        List<SessionResponse> completedSessionsThisWeek = completedSessionsThisWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> cancelledSessionsThisWeek = cancelledSessionThisWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> completedSessionsPreviousWeek = completedSessionsLastWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> cancelledSessionsPreviousWeek = cancelledSessionsLastWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+
+
+        //Percentage Logic
+        int totalSessionsThisWeek = completedSessionsThisWeek.size() + cancelledSessionsThisWeek.size();
+        int  completionRateThisWeek = totalSessionsThisWeek == 0 ? 0 :
+                (int) ((double)completedSessionsThisWeek.size() / totalSessionsThisWeek * 100);
+
+        int totalSessionsPreviousWeek =  completedSessionsPreviousWeek.size() + cancelledSessionsPreviousWeek.size();
+        int completionRatePreviousWeek = totalSessionsPreviousWeek == 0 ? 0 :
+                (int) ( (double)completedSessionsPreviousWeek.size() / totalSessionsPreviousWeek * 100);
+
+        WeekStats thisWeekStats = new WeekStats(completedSessionsThisWeek.size(), cancelledSessionsThisWeek.size(), totalSessionsThisWeek, completionRateThisWeek);
+        WeekStats previousWeekStats = new WeekStats(completedSessionsPreviousWeek.size(), cancelledSessionsPreviousWeek.size(), totalSessionsPreviousWeek, completionRatePreviousWeek);
+
+        //More math logic comparing the previous week to the current
+        List<String> changes = validateStatsMessages(thisWeekStats, previousWeekStats);
+
+
+        return  new SessionOverviewResponse(completedSessionsThisWeek.size(), cancelledSessionsThisWeek.size(),
+                completedSessionsThisWeek, cancelledSessionsThisWeek, completionRateThisWeek, changes);
+    }
+
+
+    private List<String> validateStatsMessages (WeekStats thisWeekStats, WeekStats previousWeekStats){
+
+        String thisWeekChangesCompletion = describeChange(thisWeekStats.completedSessions, previousWeekStats.completedSessions, "Integer");
+        String thisWeekChangesTotalSessions = describeChange(thisWeekStats.totalSessions, previousWeekStats.totalSessions, "Integer");
+        String thisWeekChangesCancellation = describeChange(thisWeekStats.cancelledSessions, previousWeekStats.cancelledSessions, "Integer");
+        String percentageChanges = describeChange(thisWeekStats.completionRate, previousWeekStats.completionRate, "Percentage");
+
+
+        return Arrays.asList(thisWeekChangesCompletion, thisWeekChangesTotalSessions, thisWeekChangesCancellation, percentageChanges);
+    }
+
+    //Integer & Percentage
+    private String describeChange (int currentWeek, int previousWeek, String type){
+        int difference = currentWeek - previousWeek;
+
+        if(type.equals("Integer")){  //For session counts
+            if (difference > 0) return difference + " more sessions than last week";
+            if(difference < 0) return Math.abs(difference) + " less sessions than last week";
         }
 
+        if(type.equals("Percentage")){ //For percentage changes
+            if(previousWeek == 0) return currentWeek * 100 + "% increase";
+            if(difference > 0 ) return difference + "% increase";
+            if(difference < 0) return  Math.abs(difference) + "% decrease";
+        }
 
-        return  new SessionOverviewResponse(completedSessions.size(), cancelledSessions.size(), completedSessions, cancelledSessions);
+        return "";
     }
 
     public PagedResponse<SessionResponse> retrieveSubjectSessionHistory(Long subjectId, int pageNumber, int pageSize){
@@ -376,5 +430,13 @@ public class SessionService {
         return studySessionRepository.getCompletedSessionsByTimePeriod(userId, yearMonth.getYear(), yearMonth.getMonthValue(), SessionStatus.COMPLETED);
 
     }
+
+    //Record use for the validate Stats parameters
+    private record WeekStats(
+            int completedSessions,
+            int cancelledSessions,
+            int totalSessions,
+            int completionRate
+    ){}
 
 }

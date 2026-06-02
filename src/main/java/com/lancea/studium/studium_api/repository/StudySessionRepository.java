@@ -63,9 +63,16 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
                                                                       @Param("endDate") LocalDateTime endDate, @Param("statuses") List<SessionStatus> statuses,
                                                                       @Param("userId") Long userId);
 
+    //*****
+    @Query("SELECT s FROM StudySession s JOIN FETCH s.subject WHERE s.endTime >= :startDate "
+            + "AND s.endTime <= :endDate AND s.sessionStatus = :status AND s.user.id = :userId")
+    List<StudySession> retrieveSessionsForASpecificTimePeriod (@Param("userId") Long userId, @Param("startDate") LocalDateTime startDate,
+                                                                        @Param("endDate") LocalDateTime endDate, @Param("status") SessionStatus status);
+
     /*
         Used to retrieve the completed sessions of a specific user for today
      */
+
     @Query("""
             SELECT COUNT (s) FROM StudySession s WHERE s.user.id = :userId AND s.endTime >= :startOfTheDay
             AND s.endTime < :endOfTheDay AND s.sessionStatus = :status
@@ -103,6 +110,8 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     List<CompletedSessionSummary> getCompletedSessionsForSpecificMonth( @Param("userId") Long userId, @Param("year") Integer year,
                                                                        @Param("month") Integer month, @Param("status") SessionStatus status
                                                                        );
+
+
 
     @Query("""
             SELECT 

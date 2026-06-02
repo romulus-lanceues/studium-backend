@@ -1,7 +1,6 @@
 package com.lancea.studium.studium_api.service;
 
 import com.lancea.studium.studium_api.dto.request.CreateSubjectRequest;
-import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.SubjectResponse;
 import com.lancea.studium.studium_api.entity.Subject;
