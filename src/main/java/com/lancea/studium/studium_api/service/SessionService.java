@@ -199,6 +199,7 @@ public class SessionService {
         //Retrieve session user
         User sessionUser = session.getUser();
         configureStreak(sessionUser);
+        configureHighestSession(requestUserId, sessionUser);
 
 
         studySessionRepository.save(session);
@@ -224,6 +225,18 @@ public class SessionService {
 
 
         return responseBody;
+    }
+
+    private void configureHighestSession (Long userId, User sessionUser) {
+
+        int userCompletedSessionsForToday = studySessionRepository.
+                countCompletedSessionsToday(userId, LocalDate.now().atStartOfDay(),
+                        LocalDate.now().atTime(LocalTime.MAX), SessionStatus.COMPLETED).intValue();
+
+        if(userCompletedSessionsForToday > sessionUser.getHighestSession()){
+            sessionUser.setHighestSession(userCompletedSessionsForToday);
+        }
+
     }
 
     public void configureStreak(Streakable streakable){
@@ -378,13 +391,13 @@ public class SessionService {
 
     private List<String> validateStatsMessages (WeekStats thisWeekStats, WeekStats previousWeekStats){
 
-        String thisWeekChangesCompletion = describeChange(thisWeekStats.completedSessions, previousWeekStats.completedSessions, "Integer");
+        // String thisWeekChangesCompletion = describeChange(thisWeekStats.completedSessions, previousWeekStats.completedSessions, "Integer");
         String thisWeekChangesTotalSessions = describeChange(thisWeekStats.totalSessions, previousWeekStats.totalSessions, "Integer");
         String thisWeekChangesCancellation = describeChange(thisWeekStats.cancelledSessions, previousWeekStats.cancelledSessions, "Integer");
         String percentageChanges = describeChange(thisWeekStats.completionRate, previousWeekStats.completionRate, "Percentage");
 
 
-        return Arrays.asList(thisWeekChangesCompletion, thisWeekChangesTotalSessions, thisWeekChangesCancellation, percentageChanges);
+        return Arrays.asList( thisWeekChangesTotalSessions, thisWeekChangesCancellation, percentageChanges);
     }
 
     //Integer & Percentage
@@ -397,7 +410,6 @@ public class SessionService {
         }
 
         if(type.equals("Percentage")){ //For percentage changes
-            if(previousWeek == 0) return currentWeek * 100 + "% increase";
             if(difference > 0 ) return difference + "% increase";
             if(difference < 0) return  Math.abs(difference) + "% decrease";
         }

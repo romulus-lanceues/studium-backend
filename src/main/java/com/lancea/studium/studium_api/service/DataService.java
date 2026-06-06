@@ -54,12 +54,18 @@ public class DataService {
 
         String lastSession = configureLastSession(user.getLastSession());
 
+        String sessionsTodayValidationMessage =
+                (userCompletedSessionsForToday > user.getHighestSession() || userCompletedSessionsForToday == user.getHighestSession()) ? "Personal best!" : " ";
 
-        return new DashboardResponse(user.getFullName(), streak, lastSession, userCompletedSessionsForToday);
+        return new DashboardResponse(user.getFullName(), streak, lastSession, userCompletedSessionsForToday, sessionsTodayValidationMessage);
 
     }
 
     private String configureLastSession(LocalDate lastSessionDate){
+
+        if(lastSessionDate.isBefore(LocalDate.now().minusYears(20)) || lastSessionDate.equals(LocalDate.now().minusYears(20))){
+            return "None";
+        }
         if(lastSessionDate.equals(LocalDate.now())){
             return "Today";
         }
@@ -99,7 +105,5 @@ public class DataService {
         long userId = UserDetailsUtils.extractUserId(userDetails);
         return studySessionRepository.userSessionsCount(userId);
     }
-
-
-
+    
 }

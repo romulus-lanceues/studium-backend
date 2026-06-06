@@ -1,6 +1,7 @@
 package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.CreateSubjectRequest;
+import com.lancea.studium.studium_api.dto.request.UpdateSubjectRequest;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.SubjectResponse;
@@ -48,6 +49,7 @@ public class SubjectController {
         return ResponseEntity.ok(subjectService.getUserSubjects(userDetails, pageNumber, pageSize));
     }
 
+    //Authentication Principal
     @GetMapping("/{subjectId}")
     public ResponseEntity<SubjectResponse> getSubject(@PathVariable Long subjectId){
         SubjectResponse responseBody = subjectService.getSubject(subjectId);
@@ -61,4 +63,11 @@ public class SubjectController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/update/{subjectId}")
+    public ResponseEntity<SubjectResponse> updateSubject (@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long subjectId,
+                                                          @RequestBody UpdateSubjectRequest updateSubjectRequest){
+        return ResponseEntity.ok(subjectService.updateSubjectDetails(userDetails, subjectId, updateSubjectRequest));
+    }
+
+    
 }

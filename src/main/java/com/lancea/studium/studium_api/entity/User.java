@@ -53,7 +53,14 @@ public class User implements Streakable {
     private Integer streak = 0;
 
     @Column(name = "last_session")
-    private LocalDate lastSession;
+    @Builder.Default
+    //Set the last session to a very long time just to avoid null pointer exception for new users
+    private LocalDate lastSession = LocalDate.now().minusYears(20);
+
+    //Highest session count within a day
+    @Column(name = "highest_session")
+    @Builder.Default
+    private Integer highestSession = 0;
 
     //Relationships:
 

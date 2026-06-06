@@ -27,11 +27,6 @@ public class AuthController {
         this.authService = authService;
     }
 
-    //Random Endpoint to test if the API is up and running
-    @GetMapping("/test")
-    public AuthResponse apiTest(){
-        return new AuthResponse("success");
-    }
 
     //Account Registration Controller
     @PostMapping("/register")

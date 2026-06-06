@@ -31,4 +31,6 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
     //Query for all the total study time of the user for each of their subject sum them up and return the result
     @Query(" SELECT COALESCE(SUM(s.totalStudyTime), 0) FROM Subject s WHERE s.user.id = :userId ")
     Long getUserTotalStudyTime(@Param("userId") Long userId);
+
+
 }
