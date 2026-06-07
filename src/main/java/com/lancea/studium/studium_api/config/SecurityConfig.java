@@ -2,6 +2,7 @@ package com.lancea.studium.studium_api.config;
 
 import com.lancea.studium.studium_api.security.JwtAuthenticationFilter;
 import com.lancea.studium.studium_api.service.JwtService;
+import com.lancea.studium.studium_api.util.CookieUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,7 +30,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 @Configuration
 @EnableWebSecurity

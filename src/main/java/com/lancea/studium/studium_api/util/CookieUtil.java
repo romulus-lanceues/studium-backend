@@ -1,4 +1,4 @@
-package com.lancea.studium.studium_api.config;
+package com.lancea.studium.studium_api.util;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;

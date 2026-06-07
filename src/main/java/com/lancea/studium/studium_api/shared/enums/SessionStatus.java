@@ -1,4 +1,4 @@
-package com.lancea.studium.studium_api.entity;
+package com.lancea.studium.studium_api.shared.enums;
 
 public enum SessionStatus {
     IN_PROGRESS,

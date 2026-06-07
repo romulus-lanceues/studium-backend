@@ -1,0 +1,13 @@
+package com.lancea.studium.studium_api.dto.response.bundled_response;
+
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
+
+import java.util.List;
+
+public record SessionOverviewResponse(Integer completedSessionsCount,
+                                      Integer cancelledSessionsCount,
+                                      List<SessionResponse> completedSessions,
+                                      List<SessionResponse> cancelledSessions,
+                                      Integer percentage,
+                                      List<String> changes) {
+}

@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.exception;
 
-import com.lancea.studium.studium_api.dto.response.ExceptionResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.ExceptionResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

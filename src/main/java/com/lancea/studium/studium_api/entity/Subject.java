@@ -1,9 +1,11 @@
 package com.lancea.studium.studium_api.entity;
 
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Subject {
+public class Subject implements Streakable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,15 +25,14 @@ public class Subject {
     @Column(nullable = false, length = 100)
     private String name;
 
-    //Used for something in the future, but I'm still uncertain.
     @Column(length = 7)
     private String color;
 
     @Column(length = 500)
     private String description;
 
-    @Column(name = "weekly_goal_minutes")
-    private Integer weeklyGoalMinutes;
+    @Column(name = "weekly_goal_sessions")
+    private Integer weeklyGoalSessions;
 
     @Builder.Default
     @Column(name = "total_study_time")
@@ -40,6 +41,13 @@ public class Subject {
     @Builder.Default
     @Column(name = "pomodoros_completed")
     private Integer pomodorosCompleted = 0;
+
+    @Column(name = "last_session")
+    private LocalDate lastSession;
+
+    @Column(name = "streak")
+    @Builder.Default
+    private Integer streak = 0;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -55,4 +63,16 @@ public class Subject {
     //Many sessions belong to one subject
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StudySession> sessions = new ArrayList<>();
+
+    public void increasePomodoroCompleted(){
+        this.pomodorosCompleted++;
+    }
+
+    public void increaseStudyTime(int latestStudyTime){
+        this.totalStudyTime = totalStudyTime + latestStudyTime;
+    }
+
+    public void increaseStreak(){
+        streak++;
+    }
 }

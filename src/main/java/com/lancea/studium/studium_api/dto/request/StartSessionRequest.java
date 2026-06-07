@@ -1,8 +1,7 @@
 package com.lancea.studium.studium_api.dto.request;
 
-import com.lancea.studium.studium_api.entity.SessionType;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
 
-public record StartSessionRequest(Long subjectId,
-                                  SessionType sessionType,
+public record StartSessionRequest(SessionType sessionType,
                                   Integer plannedDuration,
                                   String notes){}

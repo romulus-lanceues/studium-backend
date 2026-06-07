@@ -1,11 +1,10 @@
 package com.lancea.studium.studium_api.service;
 
-import com.lancea.studium.studium_api.entity.SessionType;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
-import java.net.UnknownServiceException;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 

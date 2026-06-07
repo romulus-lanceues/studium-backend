@@ -1,23 +1,27 @@
 package com.lancea.studium.studium_api.service;
 
-import com.lancea.studium.studium_api.config.CookieUtil;
+import com.lancea.studium.studium_api.util.CookieUtil;
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
 import com.lancea.studium.studium_api.entity.RefreshToken;
-import com.lancea.studium.studium_api.entity.Role;
+import com.lancea.studium.studium_api.shared.enums.Role;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
+import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
@@ -45,11 +49,12 @@ public class AuthService {
     }
 
     //Creating a normal user
-    public long createUser(RegisterRequest registerRequest, HttpServletResponse response){
+    public long createUser(RegisterRequest registerRequest, HttpServletResponse response, String userAgent){
 
         //Check if the email already exists
         Optional<User> user = userRepository.findByEmail(registerRequest.email());
         if(user.isPresent()){
+
             //Throw a generic ResponseStatusException to avoid many custom exception entity
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
         }
@@ -64,10 +69,8 @@ public class AuthService {
 
         userRepository.save(newUser);
 
-        //       ===TOKEN CREATION FOR ACCOUNT CREATION NOT YET IMPLEMENTED ===
-
         String jwtToken = jwtService.generateJwtToken(newUser);
-        String refreshToken = jwtService.generateRefreshToken(newUser.getId());
+        String refreshToken = jwtService.generateRefreshToken(newUser.getId(), parseDeviceInfo(userAgent));
 
         cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
 
@@ -101,7 +104,7 @@ public class AuthService {
 
 
     //Login method
-    public void verifyCredentials(LoginRequest loginRequest, HttpServletResponse response){
+    public void verifyCredentials(LoginRequest loginRequest, HttpServletResponse response, String userAgent){
 
             //Authenticate user using Spring Security
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -109,16 +112,22 @@ public class AuthService {
                     loginRequest.password()
             );
 
-            Authentication authentication = authenticationManager.authenticate(authenticationToken);
+            try{
+                Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
-            MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
-            System.out.println(userDetails.getUsername());
-            User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
+                MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
+                System.out.println(userDetails.getUsername());
+                User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
 
-            String jwtToken = jwtService.generateJwtToken(retrievedUser);
-            String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
+                String jwtToken = jwtService.generateJwtToken(retrievedUser);
+                String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId(), parseDeviceInfo(userAgent));
 
-            cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+                cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
+            } catch (BadCredentialsException e) {
+                throw new UnauthorizedException("Invalid email or password");
+            } catch (AuthenticationException e) {
+                throw new UnauthorizedException("Authentication error");
+            }
 
     }
 
@@ -126,6 +135,7 @@ public class AuthService {
     private boolean verifyPassword(String rawPassword, String hashedPassword){
         return passwordEncoder.matches(rawPassword, hashedPassword);
     }
+
 
     public User getUserInfo(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist"));
@@ -143,8 +153,9 @@ public class AuthService {
         return authResponseBody;
     }
 
-    public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response){
 
+    //Rotational Refresh token logic
+    public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response, String userAgent){
         //Extract refresh token from the cookie
         String existingRefreshTokenFromCookie = cookieUtil.getRefreshTokenFromCookie(request);
 
@@ -160,7 +171,7 @@ public class AuthService {
         User user = userRepository.findById(oldRefreshToken.getUserId()).orElseThrow( () -> new ResourceNotFoundException("User doesn't exist"));
 
         String newAccessToken = jwtService.generateJwtToken(user);
-        String newRefreshToken = jwtService.generateRefreshToken(user.getId());
+        String newRefreshToken = jwtService.generateRefreshToken(user.getId(), userAgent);
 
         cookieUtil.addJwtCookie(response, newAccessToken);
         cookieUtil.addRefreshTokenCookie(response, newRefreshToken);
@@ -173,8 +184,14 @@ public class AuthService {
         if(!refreshToken.isEmpty()){
             jwtService.revokeRefreshToken(refreshToken);
         }
-
+        //Add a catch
         cookieUtil.deleteBothCookies(response);
+    }
+
+
+    //Used to parse device info that'll be stored in the RefreshToken table.
+    private String parseDeviceInfo(String userAgent){
+        return userAgent.length() > 512 ? userAgent.substring(0, 512) : userAgent;
     }
 
 }

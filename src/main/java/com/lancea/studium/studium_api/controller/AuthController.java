@@ -3,7 +3,7 @@ package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.LoginRequest;
 import com.lancea.studium.studium_api.dto.request.RegisterRequest;
-import com.lancea.studium.studium_api.dto.response.AuthResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.AuthResponse;
 import com.lancea.studium.studium_api.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 
 
@@ -28,22 +27,17 @@ public class AuthController {
         this.authService = authService;
     }
 
-    //Random Endpoint to test if the API is up and running
-    @GetMapping("/test")
-    public AuthResponse apiTest(){
-        return new AuthResponse("success");
-    }
 
     //Account Registration Controller
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> create(
             @Validated @RequestBody RegisterRequest registerRequest,
-            HttpServletResponse response){
+            HttpServletResponse response, @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
-        //Delegate the creation of new user to the service method
-        long newUserId = authService.createUser(registerRequest, response);
+        //Delegate the creation of the new user to the service method
+        long newUserId = authService.createUser(registerRequest, response, userAgent);
 
-        //Build location URI for new resource
+        //Build location URI for the new resource
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/user/{id}")
@@ -58,10 +52,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> verifyUser(
             @Validated @RequestBody LoginRequest loginRequest,
-            HttpServletResponse response){
+            HttpServletResponse response,
+            @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
         //Delegate the verification to the service
-        authService.verifyCredentials(loginRequest, response);
+        authService.verifyCredentials(loginRequest, response, userAgent);
 
 
         return ResponseEntity.ok().body(new AuthResponse("Login Successful"));
@@ -76,9 +71,10 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<String> refreshToken(HttpServletRequest request, HttpServletResponse response){
+    public ResponseEntity<String> refreshToken(HttpServletRequest request,
+                                               HttpServletResponse response, @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
-        authService.generateNewRefreshToken(request, response);
+        authService.generateNewRefreshToken(request, response, userAgent);
         return ResponseEntity.ok("Token generation successful");
     }
 

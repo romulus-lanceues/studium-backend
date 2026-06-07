@@ -1,13 +1,15 @@
 package com.lancea.studium.studium_api.entity;
 
 
+import com.lancea.studium.studium_api.shared.enums.Role;
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Cascade;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements Streakable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -46,6 +48,20 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "streak")
+    @Builder.Default
+    private Integer streak = 0;
+
+    @Column(name = "last_session")
+    @Builder.Default
+    //Set the last session to a very long time just to avoid null pointer exception for new users
+    private LocalDate lastSession = LocalDate.now().minusYears(20);
+
+    //Highest session count within a day
+    @Column(name = "highest_session")
+    @Builder.Default
+    private Integer highestSession = 0;
+
     //Relationships:
 
     //One user has many subjects
@@ -55,5 +71,9 @@ public class User {
     //One user has many sessions
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<StudySession> sessions = new ArrayList<>();
+
+    public void increaseStreak(){
+        streak++;
+    }
 
 }

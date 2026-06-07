@@ -1,6 +1,6 @@
 package com.lancea.studium.studium_api.security;
 
-import com.lancea.studium.studium_api.config.CookieUtil;
+import com.lancea.studium.studium_api.util.CookieUtil;
 import com.lancea.studium.studium_api.exception.InvalidJwtTokenException;
 import com.lancea.studium.studium_api.service.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -47,46 +47,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         //Retrieve cookies
         final String jwtToken = cookieUtil.getJwtFrom(request);
 
-        try{
+            try{
+                //Extract email from the token
+                final String email = jwtService.getEmailFromToken(jwtToken);
 
-            //Extract email from the token
-            final String email = jwtService.getEmailFromToken(jwtToken);
+                //Verify the email and if it's not already authenticated
+                if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
+                    //Load User Details from database for extra security
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-            //Verify the email and if it's not already authenticated
-            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null){
-                //Load User Details from database for extra security
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                    //Validate credentials
+                    if(jwtService.validateToken(jwtToken, userDetails)){
 
-                //Validate credentials
-                if(jwtService.validateToken(jwtToken, userDetails)){
+                        System.out.println("Token Validation Successful");
+                        System.out.println(userDetails.getAuthorities());
 
-                    System.out.println("Token Validation Successful");
-                    System.out.println(userDetails.getAuthorities());
+                        //If passed create an authentication token
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                userDetails, //User info
+                                null, // credentials (not needed after authentication)
+                                userDetails.getAuthorities()
+                        );
 
-                    //If passed create an authentication token
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails, //User info
-                            null, // credentials (not needed after authentication)
-                            userDetails.getAuthorities()
-                    );
+                        //Set additional details
+                        authToken.setDetails(
+                                new WebAuthenticationDetailsSource().buildDetails(request)
+                        );
 
-                    //Set additional details
-                    authToken.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
-
-                    //Update Security Context
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                        //Update Security Context
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
+
+            } catch (ExpiredJwtException exception) {
+                request.setAttribute("REQUEST_EXCEPTION", exception);
+                throw exception;
+            } catch (JwtException exception){
+                request.setAttribute("REQUEST_EXCEPTION", exception);
+                throw new InvalidJwtTokenException("Invalid");
             }
 
-        } catch (ExpiredJwtException exception) {
-            request.setAttribute("REQUEST_EXCEPTION", exception);
-            throw exception;
-        } catch (JwtException exception){
-            request.setAttribute("REQUEST_EXCEPTION", exception);
-            throw new InvalidJwtTokenException("Invalid");
-        }
 
         filterChain.doFilter(request, response);
 

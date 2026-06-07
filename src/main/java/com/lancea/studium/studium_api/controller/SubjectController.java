@@ -1,8 +1,10 @@
 package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.CreateSubjectRequest;
-import com.lancea.studium.studium_api.dto.response.SubjectResponse;
-import com.lancea.studium.studium_api.security.MyUserDetails;
+import com.lancea.studium.studium_api.dto.request.UpdateSubjectRequest;
+import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.SubjectResponse;
 import com.lancea.studium.studium_api.service.SubjectService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,17 +44,30 @@ public class SubjectController {
     }
 
     @GetMapping("/subjects")
-    public ResponseEntity<List<SubjectResponse>> getUserSubjects(@AuthenticationPrincipal UserDetails userDetails){
+    public ResponseEntity<PagedResponse<SubjectResponse>> getUserSubjects(@AuthenticationPrincipal UserDetails userDetails, @RequestParam int pageNumber, @RequestParam int pageSize){
 
-        return ResponseEntity.ok(subjectService.getUserSubjects(userDetails));
+        return ResponseEntity.ok(subjectService.getUserSubjects(userDetails, pageNumber, pageSize));
     }
 
-    @GetMapping("{subjectId}")
+    //Authentication Principal
+    @GetMapping("/{subjectId}")
     public ResponseEntity<SubjectResponse> getSubject(@PathVariable Long subjectId){
         SubjectResponse responseBody = subjectService.getSubject(subjectId);
 
         return ResponseEntity.ok(responseBody);
     }
 
+    @DeleteMapping("/delete/{subjectId}")
+    public ResponseEntity<?> deleteSubject(@PathVariable Long subjectId ){
+        subjectService.deleteSubject(subjectId );
+        return ResponseEntity.noContent().build();
+    }
 
+    @PatchMapping("/update/{subjectId}")
+    public ResponseEntity<SubjectResponse> updateSubject (@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long subjectId,
+                                                          @RequestBody UpdateSubjectRequest updateSubjectRequest){
+        return ResponseEntity.ok(subjectService.updateSubjectDetails(userDetails, subjectId, updateSubjectRequest));
+    }
+
+    
 }

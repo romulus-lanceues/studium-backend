@@ -2,7 +2,8 @@ package com.lancea.studium.studium_api.controller;
 
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
-import com.lancea.studium.studium_api.dto.response.SessionResponse;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.service.SessionService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,11 +26,11 @@ public class SessionController {
     }
 
 
-    @PostMapping("/start")
-    public ResponseEntity<SessionResponse> createSession(@RequestBody StartSessionRequest startSessionRequest,
+    @PostMapping("/{subjectId}/start")
+    public ResponseEntity<SessionResponse> createSession(@PathVariable Long subjectId, @RequestBody StartSessionRequest startSessionRequest,
                                                          @AuthenticationPrincipal UserDetails userDetails){
 
-            SessionResponse sessionRequestBody = sessionService.createSession(startSessionRequest, userDetails);
+            SessionResponse sessionRequestBody = sessionService.createSession(subjectId, startSessionRequest, userDetails);
 
             URI sessionLocation = ServletUriComponentsBuilder
                     .fromCurrentContextPath()  //Get context path ex: http://localhost:8080
@@ -77,21 +78,42 @@ public class SessionController {
 
     @PatchMapping("/{sessionId}/completed")
     public ResponseEntity<Map<String, Object>> completeSession(@PathVariable Long sessionId,
-                                                               @RequestBody CompletionRequest completionRequest,
                                                                @AuthenticationPrincipal UserDetails userDetails){
 
-        Map<String, Object> responseBody = sessionService.completeSession(sessionId, completionRequest, userDetails);
+        Map<String, Object> responseBody = sessionService.completeSession(sessionId,userDetails);
 
         return ResponseEntity.ok(responseBody);
     }
 
-    @PatchMapping("{sessionId}/cancel")
+    @PatchMapping("/{sessionId}/cancel")
     public ResponseEntity<SessionResponse> cancelSession(@PathVariable Long sessionId,
                                                          @AuthenticationPrincipal UserDetails userDetails){
-        SessionResponse responseBody = sessionService.cancelRequest(sessionId, userDetails);
+        SessionResponse responseBody = sessionService.cancelSession(sessionId, userDetails);
+
+        return ResponseEntity.ok(responseBody);
+    }
+
+    @GetMapping("sessions/today")
+    public ResponseEntity<PagedResponse<SessionResponse>> sessionsForToday(@AuthenticationPrincipal UserDetails userDetails,
+                                                          @RequestParam int pageNumber, @RequestParam int pageSize){
+
+        PagedResponse<SessionResponse> responseBody = sessionService.getAllSessionsForToday(userDetails, pageNumber, pageSize);
+
+        return ResponseEntity.ok(responseBody);
+
+    }
+
+    @GetMapping("{subjectId}/history")
+    public ResponseEntity<PagedResponse<SessionResponse>> subjectSessionHistory( @PathVariable Long subjectId,
+                                                                                 @RequestParam(defaultValue = "0") int pageNumber,
+                                                                                @RequestParam(defaultValue = "5") int pageSize) {
+
+        PagedResponse<SessionResponse> responseBody = sessionService.retrieveSubjectSessionHistory(subjectId, pageNumber, pageSize);
 
         return ResponseEntity.ok(responseBody);
     }
 
 
 }
+
+//900000

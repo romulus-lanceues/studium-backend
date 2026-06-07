@@ -12,6 +12,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import javax.crypto.SecretKey;
@@ -59,15 +60,14 @@ public class JwtService {
                     .compact();
     }
 
-    public String generateRefreshToken(Long userId){
+    public String generateRefreshToken(Long userId, String deviceInfo){
 
-            //Get rid of the existing refresh token of the user
-            refreshTokenRepository.findByUserId(userId).ifPresent( tokenEntity -> refreshTokenRepository.delete(tokenEntity));
 
             RefreshToken newRefreshToken = RefreshToken.builder()
                     .userId(userId)
                     .token(UUID.randomUUID().toString())
                     .expiryDate(Instant.now().plusMillis(refreshTokenExpiration))
+                    .deviceInfo(deviceInfo)
                     .build();
 
             refreshTokenRepository.save(newRefreshToken);
@@ -146,7 +146,6 @@ public class JwtService {
     }
 
     //Revoke refresh token
-
     public void revokeRefreshToken(String token){
 
         refreshTokenRepository.findByToken(token).ifPresent(refreshToken -> {
@@ -155,11 +154,10 @@ public class JwtService {
         });
     }
 
-}
+    //Logout all devices
+    @Transactional
+    public void revokeAllRefreshTokenForUser(Long userId){
+        refreshTokenRepository.revokeAllRefreshTokensForUser(userId);
+    }
 
-//    public String generateJwtToken(Authentication authentication){
-//        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-//
-//        return Jwts.builder()
-//                .setSubject()
-//    }
+}

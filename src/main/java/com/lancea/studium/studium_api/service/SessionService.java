@@ -2,27 +2,37 @@ package com.lancea.studium.studium_api.service;
 
 import com.lancea.studium.studium_api.dto.request.CompletionRequest;
 import com.lancea.studium.studium_api.dto.request.StartSessionRequest;
-import com.lancea.studium.studium_api.dto.response.SessionResponse;
-import com.lancea.studium.studium_api.entity.SessionStatus;
-import com.lancea.studium.studium_api.entity.SessionType;
-import com.lancea.studium.studium_api.entity.StudySession;
-import com.lancea.studium.studium_api.entity.Subject;
+import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
+import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
+import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
+import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
+import com.lancea.studium.studium_api.entity.*;
 import com.lancea.studium.studium_api.exception.InvalidSessionStateException;
 import com.lancea.studium.studium_api.exception.ResourceNotFoundException;
 import com.lancea.studium.studium_api.exception.UnauthorizedException;
 import com.lancea.studium.studium_api.repository.StudySessionRepository;
 import com.lancea.studium.studium_api.repository.SubjectRepository;
+import com.lancea.studium.studium_api.repository.UserRepository;
 import com.lancea.studium.studium_api.security.MyUserDetails;
+import com.lancea.studium.studium_api.shared.enums.SessionStatus;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
+import com.lancea.studium.studium_api.shared.interfaces.Streakable;
+import com.lancea.studium.studium_api.util.UserDetailsUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class SessionService {
@@ -30,22 +40,25 @@ public class SessionService {
     private final SubjectRepository subjectRepository;
     private final StudySessionRepository studySessionRepository;
     private final PomodoroSessionCacheService pomodoroSessionCacheService;
+    private final UserRepository userRepository;
 
     public SessionService(SubjectRepository subjectRepository, StudySessionRepository studySessionRepository,
-                          PomodoroSessionCacheService pomodoroSessionCacheService){
+                          PomodoroSessionCacheService pomodoroSessionCacheService, UserRepository userRepository){
         this.subjectRepository = subjectRepository;
         this.studySessionRepository = studySessionRepository;
         this.pomodoroSessionCacheService = pomodoroSessionCacheService;
+        this.userRepository = userRepository;
     }
 
 
 
-    public SessionResponse createSession(StartSessionRequest startSessionRequest, UserDetails userDetails){
+    public SessionResponse createSession(Long subjectId, StartSessionRequest startSessionRequest, UserDetails userDetails){
 
         //Retrieve the user id from the security context
         Long userId = ((MyUserDetails) userDetails).getUserId();
+
         //Check if the subject belongs to the user
-        Subject targetSubject = subjectRepository.findByIdAndUserId(startSessionRequest.subjectId(), userId).
+        Subject targetSubject = subjectRepository.findByIdAndUserId(subjectId, userId).
                 orElseThrow(() -> new  UnauthorizedException("The subject you're trying to create a schedule doesn't belong to you."));
 
         //Create a new session object and save to the database
@@ -58,18 +71,20 @@ public class SessionService {
                 .user(targetSubject.getUser())
                 .build();
 
+
+
         studySessionRepository.save(newSession);
 
-        return new SessionResponse(newSession.getId(), newSession.getSubject().getName(),
-                newSession.getPlannedDurationMinutes(),newSession.getSessionStatus(), newSession.getCreatedAt());
+        return SessionResponse.from(newSession);
     }
+
+
 
     public SessionResponse getSession(Long sessionId){
 
         StudySession session = studySessionRepository.findById(sessionId).orElseThrow(() -> new ResourceNotFoundException("Session doesn't exist"));
 
-        return new SessionResponse(session.getId(), session.getSubject().getName(),
-                session.getPlannedDurationMinutes(), session.getSessionStatus(), session.getStartTime() );
+        return  SessionResponse.from(session);
     }
 
     public Map<String, Object> addInterruption (Long sessionId, UserDetails userDetails){
@@ -110,6 +125,8 @@ public class SessionService {
 
         session.setSessionStatus(SessionStatus.PAUSED);
 
+        // ===== INCREASE INTERRUPTION TIME (PAUSE = INTERRUPTION) ======
+
         studySessionRepository.save(session);
 
         responseBody.put("sessionId", session.getId() );
@@ -142,46 +159,100 @@ public class SessionService {
         return responseBody;
     }
 
-    public Map<String, Object> completeSession(Long sessionId, CompletionRequest completionRequest, UserDetails userDetails){
+    @Transactional
+    public Map<String, Object> completeSession(Long sessionId, UserDetails userDetails){
         Map<String, Object> responseBody = new HashMap<>();
 
-        Long userId = ((MyUserDetails) userDetails).getUserId();
+        Long requestUserId = ((MyUserDetails) userDetails).getUserId();
 
-        //Verify if the session belongs to the user
-        StudySession session = studySessionRepository.findByIdAndUserId(sessionId, userId).orElseThrow(
+        //Get the session with its user and subject
+        StudySession session = studySessionRepository.findByIdWithSubjectAndUser(sessionId).orElseThrow(
                 () -> new UnauthorizedException("This subject doesn't exist or you're not authorized to access it"));
 
+        //Verify if the user is authorized to make changes for this session
+        if(!session.getUser().getId().equals(requestUserId)){
+            throw new UnauthorizedException("You're not authorized to access it");
+        }
 
         LocalDateTime completionTime = LocalDateTime.now();
 
-        //Verify if the frontend's total minute is accurate by computing it
         long elapsedMinutes = ChronoUnit.MINUTES.between(session.getStartTime(), completionTime);
 
-        boolean isActualDurationMinutesValid = completionRequest.actualDurationMinutes() == (int) elapsedMinutes;
-
-        /*
-        If isActualDurationMinutesValid is true set the ActualDurationMinutes of the session to the minutes frontend sent
-        If not set use the one backend calculated
-         */
-        session.setActualDurationMinutes(isActualDurationMinutesValid ? completionRequest.actualDurationMinutes() : (int) elapsedMinutes);
+        session.setActualDurationMinutes((int) elapsedMinutes);
 
         session.setEndTime(completionTime);
         session.setActualDurationMinutes((int) elapsedMinutes);
         session.setSessionStatus(SessionStatus.COMPLETED);
+
+        //Retrieve session subject
+        Subject sessionSubject = session.getSubject();
+        sessionSubject.increasePomodoroCompleted();
+        sessionSubject.increaseStudyTime(session.getActualDurationMinutes());
+        configureStreak(sessionSubject);
+
+        //Retrieve session user
+        User sessionUser = session.getUser();
+        configureStreak(sessionUser);
+        configureHighestSession(requestUserId, sessionUser);
+
+
         studySessionRepository.save(session);
+        subjectRepository.save(sessionSubject);
+        userRepository.save(sessionUser);
 
-        //Add the completed session to cache
-        pomodoroSessionCacheService.addCompletedSession(userId, session.getId());
 
-        //Return a break type response
-        SessionType breakType = pomodoroSessionCacheService.determineBreakType(userId);
+        try {
+            //Add the completed session to cache
+            pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
+
+            //Return a break type response
+            SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
+            responseBody.put("break", breakType);
+        }
+        catch (Exception e){
+            throw new ResourceNotFoundException("Error while retrieving break type from cache");
+        }
+
 
         responseBody.put("sessionId", session.getId() );
         responseBody.put("status", session.getSessionStatus());
-        responseBody.put("break", breakType);
 
 
         return responseBody;
+    }
+
+    private void configureHighestSession (Long userId, User sessionUser) {
+
+        int userCompletedSessionsForToday = studySessionRepository.
+                countCompletedSessionsToday(userId, LocalDate.now().atStartOfDay(),
+                        LocalDate.now().atTime(LocalTime.MAX), SessionStatus.COMPLETED).intValue();
+
+        if(userCompletedSessionsForToday > sessionUser.getHighestSession()){
+            sessionUser.setHighestSession(userCompletedSessionsForToday);
+        }
+
+    }
+
+    public void configureStreak(Streakable streakable){
+
+        LocalDate today = LocalDate.now();
+        if(streakable.getLastSession() != null){
+
+            if(streakable.getLastSession().equals(today)) return;
+
+            if(streakable.getLastSession().plusDays(1).isEqual(today)) {
+                streakable.increaseStreak();
+                streakable.setLastSession(today);
+
+            } else {
+                streakable.setStreak(0);
+                streakable.setLastSession(today);
+            }
+
+        } else {
+            streakable.setLastSession(today);
+            streakable.setStreak(1);
+        }
     }
 
     /*
@@ -199,7 +270,7 @@ public class SessionService {
      */
 
 
-    public SessionResponse cancelRequest(Long sessionId, UserDetails userDetails){
+    public SessionResponse cancelSession(Long sessionId, UserDetails userDetails){
         StudySession session = studySessionRepository.findByIdWithSubjectAndUser(sessionId).orElseThrow( () -> new ResourceNotFoundException("Session not found"));
 
         //Verify that the session belongs to the user
@@ -222,8 +293,156 @@ public class SessionService {
 
         studySessionRepository.save(session);
 
-        return new SessionResponse(session.getId(), session.getSubject().getName(), session.getPlannedDurationMinutes(), session.getSessionStatus(), session.getStartTime());
+        return SessionResponse.from(session);
+    }
+
+    public PagedResponse<SessionResponse> getAllSessionsForToday(UserDetails userDetails, int pageNumber, int pageSize){
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        Pageable pageNumberAndSize = PageRequest.of(pageNumber, pageSize);
+
+        Page<StudySession> retrievedSessionForToday =  studySessionRepository.findSessionsForToday(userId, LocalDate.now().atStartOfDay(),
+                LocalDate.now().atTime(LocalTime.MAX),
+                Arrays.asList(SessionStatus.COMPLETED, SessionStatus.CANCELLED, SessionStatus.IN_PROGRESS),
+                pageNumberAndSize
+        );
+
+        Page<SessionResponse> convertedStudySessionsToSessionResponse = retrievedSessionForToday.map(SessionResponse::from);
+
+        return PagedResponse.from(convertedStudySessionsToSessionResponse);
 
     }
+
+    public List<StudySession> getAllCompletedSessionsForUser(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.retrieveSessionsWithSpecificStatus(userId, SessionStatus.COMPLETED);
+    }
+
+    public List<StudySession> getRecentCompletedSessions(){
+        return studySessionRepository.findRecentCompletedSessions(LocalDateTime.now().minusHours(1), SessionStatus.COMPLETED);
+    }
+
+    public List<StudySession> getCancelledSessions(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.retrieveSessionsWithSpecificStatus(userId, SessionStatus.CANCELLED);
+    }
+
+
+    public SessionOverviewResponse retrieveSessionsForThisWeek(UserDetails userDetails){
+
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+
+        LocalDateTime startOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toLocalDate().atStartOfDay();
+        LocalDateTime endOfTheWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).toLocalDate().atTime(LocalTime.MAX);
+
+        LocalDateTime startOfPreviousWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(1).toLocalDate().atStartOfDay();
+        LocalDateTime endOfPreviousWeek = LocalDateTime.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(1).toLocalDate().with(DayOfWeek.SUNDAY).atTime(LocalTime.MAX);
+
+
+        List<StudySession> completedSessionsThisWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfTheWeek, endOfTheWeek, SessionStatus.COMPLETED);
+        List<StudySession> cancelledSessionThisWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfTheWeek, endOfTheWeek, SessionStatus.CANCELLED);
+        List<StudySession> completedSessionsLastWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfPreviousWeek, endOfPreviousWeek, SessionStatus.COMPLETED);
+        List<StudySession> cancelledSessionsLastWeekQuery = studySessionRepository.
+                retrieveSessionsForASpecificTimePeriod(userId, startOfPreviousWeek, endOfPreviousWeek, SessionStatus.CANCELLED);
+
+        //Modify it to be done at Query level to avoid processing it here
+        List<SessionResponse> completedSessionsThisWeek = completedSessionsThisWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> cancelledSessionsThisWeek = cancelledSessionThisWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> completedSessionsPreviousWeek = completedSessionsLastWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+        List<SessionResponse> cancelledSessionsPreviousWeek = cancelledSessionsLastWeekQuery.stream().map(SessionResponse::from).collect(Collectors.toList());
+
+
+        //Percentage Logic
+        int totalSessionsThisWeek = completedSessionsThisWeek.size() + cancelledSessionsThisWeek.size();
+        int  completionRateThisWeek = totalSessionsThisWeek == 0 ? 0 :
+                (int) ((double)completedSessionsThisWeek.size() / totalSessionsThisWeek * 100);
+
+        int totalSessionsPreviousWeek =  completedSessionsPreviousWeek.size() + cancelledSessionsPreviousWeek.size();
+        int completionRatePreviousWeek = totalSessionsPreviousWeek == 0 ? 0 :
+                (int) ( (double)completedSessionsPreviousWeek.size() / totalSessionsPreviousWeek * 100);
+
+        WeekStats thisWeekStats = new WeekStats(completedSessionsThisWeek.size(), cancelledSessionsThisWeek.size(), totalSessionsThisWeek, completionRateThisWeek);
+        WeekStats previousWeekStats = new WeekStats(completedSessionsPreviousWeek.size(), cancelledSessionsPreviousWeek.size(), totalSessionsPreviousWeek, completionRatePreviousWeek);
+
+        //More math logic comparing the previous week to the current
+        List<String> changes = validateStatsMessages(thisWeekStats, previousWeekStats);
+
+
+        return  new SessionOverviewResponse(completedSessionsThisWeek.size(), cancelledSessionsThisWeek.size(),
+                completedSessionsThisWeek, cancelledSessionsThisWeek, completionRateThisWeek, changes);
+    }
+
+
+    private List<String> validateStatsMessages (WeekStats thisWeekStats, WeekStats previousWeekStats){
+
+        // String thisWeekChangesCompletion = describeChange(thisWeekStats.completedSessions, previousWeekStats.completedSessions, "Integer");
+        String thisWeekChangesTotalSessions = describeChange(thisWeekStats.totalSessions, previousWeekStats.totalSessions, "Integer");
+        String thisWeekChangesCancellation = describeChange(thisWeekStats.cancelledSessions, previousWeekStats.cancelledSessions, "Integer");
+        String percentageChanges = describeChange(thisWeekStats.completionRate, previousWeekStats.completionRate, "Percentage");
+
+
+        return Arrays.asList( thisWeekChangesTotalSessions, thisWeekChangesCancellation, percentageChanges);
+    }
+
+    //Integer & Percentage
+    private String describeChange (int currentWeek, int previousWeek, String type){
+        int difference = currentWeek - previousWeek;
+
+        if(type.equals("Integer")){  //For session counts
+            if (difference > 0) return difference + " more sessions than last week";
+            if(difference < 0) return Math.abs(difference) + " less sessions than last week";
+        }
+
+        if(type.equals("Percentage")){ //For percentage changes
+            if(difference > 0 ) return difference + "% increase";
+            if(difference < 0) return  Math.abs(difference) + "% decrease";
+        }
+
+        return "";
+    }
+
+    public PagedResponse<SessionResponse> retrieveSubjectSessionHistory(Long subjectId, int pageNumber, int pageSize){
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+        Page<StudySession> retrievedSessions = studySessionRepository.findHistoryForSubject(subjectId, pageable);
+
+        Page<SessionResponse> convertSessionsToSessionResponse = retrievedSessions.map(SessionResponse::from);
+
+        return PagedResponse.from(convertSessionsToSessionResponse);
+    }
+
+    public List<CompletedSessionSummary> getMonthlyCompletedSessions (UserDetails userDetails, YearMonth yearMonth){
+
+        long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.getCompletedSessionsForSpecificMonth(userId, yearMonth.getYear(), yearMonth.getMonthValue(),SessionStatus.COMPLETED);
+
+    }
+
+    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(UserDetails userDetails, YearMonth yearMonth){
+        Long userId = UserDetailsUtils.extractUserId(userDetails);
+
+        return studySessionRepository.getCompletedSessionsByTimePeriod(userId, yearMonth.getYear(), yearMonth.getMonthValue(), SessionStatus.COMPLETED);
+
+    }
+
+    //Record use for the validate Stats parameters
+    private record WeekStats(
+            int completedSessions,
+            int cancelledSessions,
+            int totalSessions,
+            int completionRate
+    ){}
 
 }
