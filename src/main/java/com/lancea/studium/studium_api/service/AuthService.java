@@ -49,7 +49,7 @@ public class AuthService {
     }
 
     //Creating a normal user
-    public long createUser(RegisterRequest registerRequest, HttpServletResponse response){
+    public long createUser(RegisterRequest registerRequest, HttpServletResponse response, String userAgent){
 
         //Check if the email already exists
         Optional<User> user = userRepository.findByEmail(registerRequest.email());
@@ -70,7 +70,7 @@ public class AuthService {
         userRepository.save(newUser);
 
         String jwtToken = jwtService.generateJwtToken(newUser);
-        String refreshToken = jwtService.generateRefreshToken(newUser.getId());
+        String refreshToken = jwtService.generateRefreshToken(newUser.getId(), parseDeviceInfo(userAgent));
 
         cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
 
@@ -104,7 +104,7 @@ public class AuthService {
 
 
     //Login method
-    public void verifyCredentials(LoginRequest loginRequest, HttpServletResponse response){
+    public void verifyCredentials(LoginRequest loginRequest, HttpServletResponse response, String userAgent){
 
             //Authenticate user using Spring Security
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -120,7 +120,7 @@ public class AuthService {
                 User retrievedUser = userRepository.findByEmail(userDetails.getUsername()).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist."));
 
                 String jwtToken = jwtService.generateJwtToken(retrievedUser);
-                String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId());
+                String refreshToken = jwtService.generateRefreshToken(retrievedUser.getId(), parseDeviceInfo(userAgent));
 
                 cookieUtil.addAuthCookies(response, jwtToken, refreshToken);
             } catch (BadCredentialsException e) {
@@ -135,6 +135,7 @@ public class AuthService {
     private boolean verifyPassword(String rawPassword, String hashedPassword){
         return passwordEncoder.matches(rawPassword, hashedPassword);
     }
+
 
     public User getUserInfo(String email){
         return userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User doesn't exist"));
@@ -152,7 +153,9 @@ public class AuthService {
         return authResponseBody;
     }
 
-    public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response){
+
+    //Rotational Refresh token logic
+    public void generateNewRefreshToken(HttpServletRequest request, HttpServletResponse response, String userAgent){
         //Extract refresh token from the cookie
         String existingRefreshTokenFromCookie = cookieUtil.getRefreshTokenFromCookie(request);
 
@@ -168,7 +171,7 @@ public class AuthService {
         User user = userRepository.findById(oldRefreshToken.getUserId()).orElseThrow( () -> new ResourceNotFoundException("User doesn't exist"));
 
         String newAccessToken = jwtService.generateJwtToken(user);
-        String newRefreshToken = jwtService.generateRefreshToken(user.getId());
+        String newRefreshToken = jwtService.generateRefreshToken(user.getId(), userAgent);
 
         cookieUtil.addJwtCookie(response, newAccessToken);
         cookieUtil.addRefreshTokenCookie(response, newRefreshToken);
@@ -182,8 +185,13 @@ public class AuthService {
             jwtService.revokeRefreshToken(refreshToken);
         }
         //Add a catch
-
         cookieUtil.deleteBothCookies(response);
+    }
+
+
+    //Used to parse device info that'll be stored in the RefreshToken table.
+    private String parseDeviceInfo(String userAgent){
+        return userAgent.length() > 512 ? userAgent.substring(0, 512) : userAgent;
     }
 
 }

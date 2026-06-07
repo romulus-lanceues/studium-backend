@@ -32,10 +32,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> create(
             @Validated @RequestBody RegisterRequest registerRequest,
-            HttpServletResponse response){
+            HttpServletResponse response, @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
         //Delegate the creation of the new user to the service method
-        long newUserId = authService.createUser(registerRequest, response);
+        long newUserId = authService.createUser(registerRequest, response, userAgent);
 
         //Build location URI for the new resource
         URI location = ServletUriComponentsBuilder
@@ -52,10 +52,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> verifyUser(
             @Validated @RequestBody LoginRequest loginRequest,
-            HttpServletResponse response){
+            HttpServletResponse response,
+            @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
         //Delegate the verification to the service
-        authService.verifyCredentials(loginRequest, response);
+        authService.verifyCredentials(loginRequest, response, userAgent);
 
 
         return ResponseEntity.ok().body(new AuthResponse("Login Successful"));
@@ -70,9 +71,10 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<String> refreshToken(HttpServletRequest request, HttpServletResponse response){
+    public ResponseEntity<String> refreshToken(HttpServletRequest request,
+                                               HttpServletResponse response, @RequestHeader(value = "User-Agent", defaultValue = "Unknown") String userAgent){
 
-        authService.generateNewRefreshToken(request, response);
+        authService.generateNewRefreshToken(request, response, userAgent);
         return ResponseEntity.ok("Token generation successful");
     }
 
