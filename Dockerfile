@@ -3,4 +3,4 @@ WORKDIR /app
 COPY . .
 RUN ./mvnw clean package -DskipTests -Dmaven.test.skip=true
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "target/*.jar"]
+ENTRYPOINT ["sh", "-c", "java -jar target/*.jar"]
