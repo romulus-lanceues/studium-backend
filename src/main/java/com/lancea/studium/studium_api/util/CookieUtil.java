@@ -79,14 +79,10 @@ public class CookieUtil {
     private Cookie createCookie(String name, String value, int maxAge){
         Cookie cookie = new Cookie(name, value);
         cookie.setHttpOnly(true);
-        cookie.setSecure(secure); //??? Production only??
+        cookie.setSecure(secure); //true
         cookie.setPath("/");
         cookie.setMaxAge(maxAge);
-        cookie.setAttribute("SameSite", "Strict");
-
-        if(!domain.isEmpty()){
-            cookie.setDomain(domain);
-        }
+        cookie.setAttribute("SameSite", "None");
 
         return cookie;
     }
