@@ -1,6 +1,7 @@
 package com.lancea.studium.studium_api.service;
 
 import com.lancea.studium.studium_api.shared.enums.SessionType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 public class PomodoroSessionCacheService {
 
@@ -23,8 +25,10 @@ public class PomodoroSessionCacheService {
 
     //Add a completed session to Redis
     public void addCompletedSession(Long userId, Long sessionId ){
-        //Create a key
-        String key = SESSION_KEY_PREFIX + userId;
+
+        try{
+            //Create a key
+            String key = SESSION_KEY_PREFIX + userId;
 
         /*
         WHY NOT GET THE TIME FROM THE SESSION ENTITY?
@@ -34,19 +38,23 @@ public class PomodoroSessionCacheService {
 
         For time-based queries like "sessions in the past 2 hours", you need scores to be comparable numbers.
          */
-        long timestamp = Instant.now().toEpochMilli();
+            long timestamp = Instant.now().toEpochMilli();
 
-        //Redis Sorted Sets
-        ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
+            //Redis Sorted Sets
+            ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
 
-        //Convert sessionId to string for Redis storage
-        zSetOperations.add(key, sessionId.toString(), timestamp);
+            //Convert sessionId to string for Redis storage
+            zSetOperations.add(key, sessionId.toString(), timestamp);
 
-        //Set expiration on the key (auto-cleanup after inactivity)
-        redisTemplate.expire(key, TIME_WINDOW_HOURS + 1, TimeUnit.HOURS);
+            //Set expiration on the key (auto-cleanup after inactivity)
+            redisTemplate.expire(key, TIME_WINDOW_HOURS + 1, TimeUnit.HOURS);
 
-        //Clean up old sessions
-        removeOldSessions(userId);
+            //Clean up old sessions
+            removeOldSessions(userId);
+        } catch (Exception e){
+            log.warn("Failed to cache session {} for userId {}. Cause: {}", sessionId, userId, e.getMessage());
+        }
+
 
 
     }
@@ -66,14 +74,22 @@ public class PomodoroSessionCacheService {
     }
 
     public SessionType determineBreakType(Long userId){
-        long sessionCount = countRecentSession(userId);
 
-        if(sessionCount == 4){
-            resetSessions(userId);
-            return SessionType.LONG_BREAK;
+        try{
+            long sessionCount = countRecentSession(userId);
+
+            if(sessionCount == 4){
+                resetSessions(userId);
+                return SessionType.LONG_BREAK;
+            }
+
+            return SessionType.SHORT_BREAK;
+        }
+        catch (Exception e){
+            log.warn("Redis unavailable reason: {}", e.getMessage());
+            return SessionType.SHORT_BREAK;
         }
 
-        return SessionType.SHORT_BREAK;
     }
 
     private void removeOldSessions(Long userId){

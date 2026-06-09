@@ -201,19 +201,14 @@ public class SessionService {
         userRepository.save(sessionUser);
 
 
-        try {
-            //Add the completed session to cache
-            pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
+        //Add the completed session to cache
+        pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
 
-            //Return a break type response
-            SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
-            responseBody.put("break", breakType);
-        }
-        catch (Exception e){
-            throw new ResourceNotFoundException("Error while retrieving break type from cache");
-        }
+        //Return a break type response
+        SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
 
 
+        responseBody.put("break", breakType);
         responseBody.put("sessionId", session.getId() );
         responseBody.put("status", session.getSessionStatus());
 
