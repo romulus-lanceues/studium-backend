@@ -126,6 +126,16 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             ORDER BY (s.subject.name) ASC
             """)
 
-    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(@Param("userId") Long userId, @Param("year") Integer year, @Param("month") Integer month, @Param("sessionStatus") SessionStatus sessionStatus);
+    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(@Param("userId") Long userId, @Param("year") Integer year,
+                                                                              @Param("month") Integer month, @Param("sessionStatus") SessionStatus sessionStatus);
+
+    @Query("""
+            SELECT COUNT(s) FROM StudySession s
+            WHERE s.user.id = :userId
+            AND s.sessionStatus = :sessionStatus
+            AND s.endTime >= :windowStart
+            """)
+      long countSpecificSessionWithinSpecificTimePeriod(@Param("userId") Long userId, @Param("sessionStatus") SessionStatus sessionStatus,
+                                                        @Param("windowStart")LocalDateTime windowStart);
 
 }

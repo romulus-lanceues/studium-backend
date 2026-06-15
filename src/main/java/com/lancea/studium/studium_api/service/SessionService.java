@@ -39,17 +39,14 @@ public class SessionService {
 
     private final SubjectRepository subjectRepository;
     private final StudySessionRepository studySessionRepository;
-    private final PomodoroSessionCacheService pomodoroSessionCacheService;
     private final UserRepository userRepository;
 
     public SessionService(SubjectRepository subjectRepository, StudySessionRepository studySessionRepository,
-                          PomodoroSessionCacheService pomodoroSessionCacheService, UserRepository userRepository){
+                           UserRepository userRepository){
         this.subjectRepository = subjectRepository;
         this.studySessionRepository = studySessionRepository;
-        this.pomodoroSessionCacheService = pomodoroSessionCacheService;
         this.userRepository = userRepository;
     }
-
 
 
     public SessionResponse createSession(Long subjectId, StartSessionRequest startSessionRequest, UserDetails userDetails){
@@ -201,11 +198,12 @@ public class SessionService {
         userRepository.save(sessionUser);
 
 
-        //Add the completed session to cache
-        pomodoroSessionCacheService.addCompletedSession(requestUserId, session.getId());
-
         //Return a break type response
-        SessionType breakType = pomodoroSessionCacheService.determineBreakType(requestUserId);
+
+        //Count the number of completed within 2 hours
+        LocalDateTime windowStart = LocalDateTime.now().minusHours(2);
+        SessionType breakType = configureBreakType(studySessionRepository.countSpecificSessionWithinSpecificTimePeriod(requestUserId,
+                SessionStatus.COMPLETED, windowStart ));
 
 
         responseBody.put("break", breakType);
@@ -225,6 +223,15 @@ public class SessionService {
         if(userCompletedSessionsForToday > sessionUser.getHighestSession()){
             sessionUser.setHighestSession(userCompletedSessionsForToday);
         }
+
+    }
+
+    private SessionType configureBreakType(long numberOfSessions){
+        if(numberOfSessions == 0) return SessionType.SHORT_BREAK;
+
+        if(numberOfSessions % 4 == 0) return SessionType.LONG_BREAK;
+
+        return SessionType.SHORT_BREAK;
 
     }
 
