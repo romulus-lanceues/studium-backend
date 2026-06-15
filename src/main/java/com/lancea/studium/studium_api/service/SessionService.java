@@ -124,6 +124,8 @@ public class SessionService {
 
         // ===== INCREASE INTERRUPTION TIME (PAUSE = INTERRUPTION) ======
 
+        session.setInterruptionsCount(session.getInterruptionsCount() + 1);
+
         studySessionRepository.save(session);
 
         responseBody.put("sessionId", session.getId() );

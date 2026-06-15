@@ -20,7 +20,7 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     /*
         Get session with its user and subject.
         Used by:
-        * SessionService -  completeSession
+        * SessionService - completeSession
         * SessionService - cancelSession
      */
     @Query("SELECT s FROM StudySession s JOIN FETCH s.subject JOIN FETCH s.user WHERE s.id = :sessionId")
@@ -31,23 +31,18 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
     @Query("SELECT COUNT (s) FROM StudySession s WHERE s.user.id = :userId")
     Long userSessionsCount(@Param("userId") long userId);
 
-    //Checks if the session exists using the userId and scheduleId BOOLEAN return value
-    boolean existsByIdAndUserId(Long sessionId, Long subjectId);
-
     //Checks if the session exists using the userId and scheduleId OPTIONAL return type
     Optional<StudySession> findByIdAndUserId(Long sessionId, Long userId);
 
 
-    /*
-        Returns the sessions completed since the passed date and time.
-     */
+
+    // Returns the sessions completed since the passed date and time.
+
     @Query("SELECT s FROM StudySession s WHERE s.endTime >= :cutoff AND s.sessionStatus = :status")
     List<StudySession> findRecentCompletedSessions(@Param("cutoff")LocalDateTime cutoff, @Param("status") SessionStatus status);
 
 
-    /*
-        Retrieves sessions
-     */
+    // Retrieves specific sessions according to their status (Paging must be implemented)
     @Query("SELECT s FROM StudySession s WHERE s.user.id = :id AND s.sessionStatus = :status")
     List<StudySession> retrieveSessionsWithSpecificStatus( @Param("id") Long userId, @Param("status")SessionStatus status);
 
@@ -137,5 +132,18 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             """)
       long countSpecificSessionWithinSpecificTimePeriod(@Param("userId") Long userId, @Param("sessionStatus") SessionStatus sessionStatus,
                                                         @Param("windowStart")LocalDateTime windowStart);
+
+
+//    @Query("""
+//            SELECT new com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO(
+//            s.plannedDurationMinutes,
+//            COUNT(s),
+//            SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE 0 END),
+//            CAST(SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE) AS double) / COUNT(s),
+//
+//
+//            )
+//            """)
+
 
 }

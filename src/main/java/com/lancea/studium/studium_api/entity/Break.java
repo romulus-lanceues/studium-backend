@@ -37,4 +37,5 @@ public class Break {
     @JoinColumn(name = "session_id", nullable = false, unique = true)
     private StudySession studySession;
 
+
 }
