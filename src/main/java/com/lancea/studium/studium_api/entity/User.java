@@ -62,6 +62,10 @@ public class User implements Streakable {
     @Builder.Default
     private Integer highestSession = 0;
 
+    @Column(name = "longest_streak")
+    @Builder.Default
+    private Integer longestStreak = 0;
+
     //Relationships:
 
     //One user has many subjects

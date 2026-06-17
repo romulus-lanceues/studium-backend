@@ -49,6 +49,10 @@ public class Subject implements Streakable {
     @Builder.Default
     private Integer streak = 0;
 
+    @Column(name = "longest_streak")
+    @Builder.Default
+    private Integer longestStreak = 0;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -257,21 +257,18 @@ public class SessionService {
             streakable.setLastSession(today);
             streakable.setStreak(1);
         }
+
+        configureHighestStreak(streakable);
     }
 
-    /*
-        Database approach without Redis
+    private void configureHighestStreak(Streakable streakable){
 
-        private boolean eligibleForALongBreak(){
-        //Query for the past completed sessions within 2 hours
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
-        List<StudySession> completedSessionsForThePast2Hours = studySessionRepository.findRecentCompletedSessions(cutoff, SessionStatus.COMPLETED);
+        Integer currentStreak = streakable.getStreak();
+        Integer longestStreak = streakable.getLongestStreak();
 
-        //If sessions.length < 4 return false
-        return completedSessionsForThePast2Hours.size() == 4;
-
+        if( currentStreak > longestStreak) streakable.setLongestStreak(currentStreak);
     }
-     */
+
 
 
     public SessionResponse cancelSession(Long sessionId, UserDetails userDetails){
