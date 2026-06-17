@@ -6,10 +6,12 @@ import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
 import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
+import com.lancea.studium.studium_api.dto.response.single_response.FocusRecommendationDTO;
 import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.service.DataService;
+import com.lancea.studium.studium_api.service.FocusRecommendationService;
 import com.lancea.studium.studium_api.service.SessionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,11 +28,13 @@ public class DataController {
 
     private final DataService dataService;
     private final SessionService sessionService;
+    private final FocusRecommendationService focusRecommendationService;
 
 
-    public DataController(DataService dataService, SessionService sessionService){
+    public DataController(DataService dataService, SessionService sessionService, FocusRecommendationService focusRecommendationService){
         this.dataService = dataService;
         this.sessionService = sessionService;
+        this.focusRecommendationService = focusRecommendationService;
     }
 
     //Dashboard Controller
@@ -92,6 +96,11 @@ public class DataController {
     @GetMapping("/analytics/subjects/completed-sessions")
     public ResponseEntity<List<CompletedSessionsPerSubject>> retrieveCompletedSessionsByTimePeriod(@AuthenticationPrincipal UserDetails userDetails, @RequestParam (defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
         return ResponseEntity.ok(sessionService.getCompletedSessionsByTimePeriod(userDetails, month));
+    }
+
+    @GetMapping("/analytics/recommendation")
+    public ResponseEntity<FocusRecommendationDTO> retrieveRecommendation(@AuthenticationPrincipal UserDetails userDetails){
+        return ResponseEntity.ok(focusRecommendationService.retrieveRecommendation(userDetails));
     }
 
 }

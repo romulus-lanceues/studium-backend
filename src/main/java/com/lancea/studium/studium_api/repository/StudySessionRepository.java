@@ -2,8 +2,10 @@ package com.lancea.studium.studium_api.repository;
 
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
+import com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
+import com.lancea.studium.studium_api.shared.enums.SessionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -82,8 +84,10 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             AND s.startTime >= :startOfTheDay AND s.startTime < :endOfTheDay 
             AND s.sessionStatus IN :statuses
             """)
-    Page<StudySession> findSessionsForToday(@Param("userId") Long userId, @Param("startOfTheDay") LocalDateTime startOfTheDay,
-                                                @Param("endOfTheDay") LocalDateTime endOfTheDay, @Param("statuses") List<SessionStatus> statuses, Pageable pageable);
+    Page<StudySession> findSessionsForToday(@Param("userId") Long userId,
+                                            @Param("startOfTheDay") LocalDateTime startOfTheDay,
+                                            @Param("endOfTheDay") LocalDateTime endOfTheDay,
+                                            @Param("statuses") List<SessionStatus> statuses, Pageable pageable);
 
     @Query("SELECT s FROM StudySession s WHERE s.subject.id = :subjectId")
     Page<StudySession> findHistoryForSubject(@Param("subjectId") Long subjectId, Pageable pageable);
@@ -102,8 +106,10 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
              GROUP BY CAST (s.endTime AS LocalDate)
              ORDER BY CAST (s.endTime AS LocalDate) ASC
             """)
-    List<CompletedSessionSummary> getCompletedSessionsForSpecificMonth( @Param("userId") Long userId, @Param("year") Integer year,
-                                                                       @Param("month") Integer month, @Param("status") SessionStatus status
+    List<CompletedSessionSummary> getCompletedSessionsForSpecificMonth( @Param("userId") Long userId,
+                                                                        @Param("year") Integer year,
+                                                                       @Param("month") Integer month,
+                                                                        @Param("status") SessionStatus status
                                                                        );
 
 
@@ -121,8 +127,10 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             ORDER BY (s.subject.name) ASC
             """)
 
-    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(@Param("userId") Long userId, @Param("year") Integer year,
-                                                                              @Param("month") Integer month, @Param("sessionStatus") SessionStatus sessionStatus);
+    public List<CompletedSessionsPerSubject> getCompletedSessionsByTimePeriod(@Param("userId") Long userId,
+                                                                              @Param("year") Integer year,
+                                                                              @Param("month") Integer month,
+                                                                              @Param("sessionStatus") SessionStatus sessionStatus);
 
     @Query("""
             SELECT COUNT(s) FROM StudySession s
@@ -130,20 +138,68 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
             AND s.sessionStatus = :sessionStatus
             AND s.endTime >= :windowStart
             """)
-      long countSpecificSessionWithinSpecificTimePeriod(@Param("userId") Long userId, @Param("sessionStatus") SessionStatus sessionStatus,
+      long countSpecificSessionWithinSpecificTimePeriod(@Param("userId") Long userId,
+                                                        @Param("sessionStatus") SessionStatus sessionStatus,
                                                         @Param("windowStart")LocalDateTime windowStart);
 
 
-//    @Query("""
-//            SELECT new com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO(
-//            s.plannedDurationMinutes,
-//            COUNT(s),
-//            SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE 0 END),
-//            CAST(SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE) AS double) / COUNT(s),
-//
-//
-//            )
-//            """)
+    //Sort every session based on their planned duration status
+    @Query("""
+            SELECT new com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO(
+            s.plannedDurationMinutes,
+            COUNT(s),
+            SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE 0 END),
+            CAST(SUM(CASE WHEN s.sessionStatus = :completed THEN 1 ELSE 0 END) AS double) / COUNT(s),
+            AVG(s.interruptionsCount)
+            )
+            
+            FROM StudySession s
+            WHERE s.user.id = :userId
+            AND s.sessionType = :workType
+            AND s.sessionStatus IN (:completed, :cancelled)
+            AND s.startTime >= :since
+            GROUP BY s.plannedDurationMinutes
+            ORDER BY s.plannedDurationMinutes ASC
+            """)
+    List<DurationBucketDTO> findDurationBucketsByUserId(@Param("userId") Long userId,
+                                                        @Param("workType")SessionType workType,
+                                                        @Param("completed") SessionStatus completed,
+                                                        @Param("cancelled") SessionStatus cancelled,
+                                                        @Param("since") LocalDateTime since);
 
+    @Query("""
+    SELECT
+        EXTRACT(HOUR FROM s.startTime),
+        COUNT(s),
+        AVG(s.actualDurationMinutes)
+    FROM StudySession s
+    WHERE s.user.id = :userId
+    AND s.sessionType = :workType
+    AND s.sessionStatus = :completed
+    AND s.startTime >= :since
+    GROUP BY EXTRACT(HOUR FROM s.startTime)
+    ORDER BY COUNT(s) DESC
+""")
+    List<Object[]> findPeakHoursByUser(
+            @Param("userId") Long userId,
+            @Param("workType") SessionType workType,
+            @Param("completed") SessionStatus completed,
+            @Param("since") LocalDateTime since
+    );
+
+
+    @Query("""
+            SELECT COUNT(s)
+            FROM StudySession s
+            WHERE s.user.id = :userId
+            AND s.sessionType = :workType
+            AND s.sessionStatus IN (:completed, :cancelled)
+            AND s.startTime >= :since
+            """)
+    Long countEligibleSessionByUserId(@Param("userId") Long userId,
+                                      @Param("workType") SessionType workType,
+                                      @Param("completed") SessionStatus completed,
+                                      @Param("cancelled") SessionStatus cancelled,
+                                      @Param("since") LocalDateTime since);
 
 }
