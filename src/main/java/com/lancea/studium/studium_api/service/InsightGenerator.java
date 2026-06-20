@@ -20,18 +20,18 @@ public class InsightGenerator {
     public String generateInsight(DurationBucketDTO bestBucket, List<DurationBucketDTO> buckets){
 
         int bestBucketPlannedMinutes = bestBucket.plannedDurationMinutes();
-        long bestBucketCompletionPct = Math.round(bestBucket.completionRate() * 100);
+        String bestBucketCompletionPct = generatePercentage(bestBucket.completionRate());
 
         //Find the bucket that isn't the best bucket via most completed sessions
         return buckets.stream().filter( bucket -> !bucket.plannedDurationMinutes().equals(bestBucketPlannedMinutes))
                 .max(Comparator.comparingLong(bucket -> bucket.completedSessions()))
                 .map( competitor -> {
-                    long competitorCompletionPct = Math.round(competitor.completionRate() * 100);
+                    String competitorCompletionPct = generatePercentage(competitor.completionRate());
 
-                    return String.format("You completed %d%% of your %d-minute sessions but only %d%% of %d-minute ones",
+                    return String.format("You completed %s of your %d-minute sessions but only %s of %d-minute ones",
                             bestBucketCompletionPct, bestBucketPlannedMinutes,
                             competitorCompletionPct, competitor.plannedDurationMinutes());})
-                .orElse(String.format("You complete %d%% of your %%d-minute sessions. Great work!",
+                .orElse(String.format("You complete %s of your %d-minute sessions. Great work!",
                         bestBucketCompletionPct, bestBucketPlannedMinutes));
     }
 
@@ -41,12 +41,21 @@ public class InsightGenerator {
      * @return
      */
 
-    public String generatePeakHourInsight(Long peakHour){
+    public String generatePeakHourInsight(Integer peakHour){
 
             if(peakHour == 0 ) return "12 AM";
             if(peakHour == 12) return "12 PM";
-            if(peakHour < 12) return String.format("%d", peakHour);
+            if(peakHour < 12) return String.format("%d AM", peakHour);
             return (peakHour - 12) + " PM";
 
+    }
+
+    /**
+     * Converts any decimal into its percentage format
+     * @param rating decimal state of the data
+     * @return String
+     */
+    private String generatePercentage(Double rating){
+        return String.format("%d%%", Math.round(rating * 100));
     }
 }

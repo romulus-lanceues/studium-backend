@@ -1,8 +1,10 @@
 package com.lancea.studium.studium_api.repository;
 
+import com.lancea.studium.studium_api.dto.projection.*;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
 import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
 import com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO;
+import com.lancea.studium.studium_api.shared.enums.BreakDownPeriod;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.entity.StudySession;
 import com.lancea.studium.studium_api.shared.enums.SessionType;
@@ -143,6 +145,8 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
                                                         @Param("windowStart")LocalDateTime windowStart);
 
 
+    // FOCUS RECOMMENDATION QUERIES
+
     //Sort every session based on their planned duration status
     @Query("""
             SELECT new com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO(
@@ -167,23 +171,29 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
                                                         @Param("cancelled") SessionStatus cancelled,
                                                         @Param("since") LocalDateTime since);
 
-    @Query("""
-    SELECT
-        EXTRACT(HOUR FROM s.startTime),
-        COUNT(s),
-        AVG(s.actualDurationMinutes)
-    FROM StudySession s
-    WHERE s.user.id = :userId
-    AND s.sessionType = :workType
-    AND s.sessionStatus = :completed
-    AND s.startTime >= :since
-    GROUP BY EXTRACT(HOUR FROM s.startTime)
-    ORDER BY COUNT(s) DESC
-""")
-    List<Object[]> findPeakHoursByUser(
+
+    /**
+     * Retrieves every time period within a specific time frame when the user completed a session
+     * Due to the complex nature of a projection was used instead of the traditional DTO
+     * @param userId
+     * @param since
+     * @return List of PeakHourProjection
+     */
+    @Query(value = """
+            SELECT
+                EXTRACT(HOUR FROM start_time)::INTEGER     AS  hour,
+                COUNT(*)    AS  sessions,
+                ROUND(  COUNT(*) FILTER (WHERE session_status = 'COMPLETED')::DECIMAL
+                / NULLIF(COUNT(*), 0), 2)       AS  completionRate
+            FROM study_sessions
+            WHERE user_id = :userId
+                AND session_type = 'WORK'
+                AND start_time >= :since
+            GROUP BY EXTRACT(HOUR FROM start_time)
+        ORDER BY sessions DESC
+        """, nativeQuery = true)
+    List<PeakHourProjection> findPeakHoursByUser(
             @Param("userId") Long userId,
-            @Param("workType") SessionType workType,
-            @Param("completed") SessionStatus completed,
             @Param("since") LocalDateTime since
     );
 
@@ -201,5 +211,128 @@ public interface StudySessionRepository extends JpaRepository<StudySession, Long
                                       @Param("completed") SessionStatus completed,
                                       @Param("cancelled") SessionStatus cancelled,
                                       @Param("since") LocalDateTime since);
+    //ANALYTICS QUERIES
+
+    /**
+     * Due to the complex nature of the query, this QUERY uses PostgresSQL-specific syntax that JPQL can't support
+     * Aggregates important data of the user such as totalSessions, completedSessions, completionRate, and totalFocusMinutes
+     * @param userId
+     * @return SummaryStatsProjection that contains user summary data
+     */
+
+    @Query(value = """
+            SELECT
+                COUNT(*)    AS totalSessions,
+                COUNT(*) FILTER (WHERE session_status = 'COMPLETED')    AS completedSessions,
+                ROUND (COUNT(*) FILTER (WHERE session_status = 'COMPLETED'):: DECIMAL
+                / NULLIF(COUNT(*), 0), 2 )  AS completionRate,
+                COALESCE( SUM(actual_duration_minutes)
+                    FILTER (WHERE session_status = 'COMPLETED'), 0)     AS totalFocusMinutes,
+                COALESCE( AVG(interruptions_count)
+                    FILTER(WHERE session_status = 'COMPLETED'), 0)      AS averageInterruptions
+            FROM study_sessions
+            WHERE user_id = :userId
+            """, nativeQuery = true)
+    SummaryStatsProjection fetchSummaryStats(@Param("userId") Long userId);
+
+    /**
+     *Retrieves raw productivity data of the user, includes:
+     * - completionRate
+     * - consistencyRate
+     * - totalSessions
+     * @param userId
+     * @param since
+     * @param until
+     * @return ProductivityRawProjection that aggregates all of this data together.
+     */
+
+    @Query(value = """
+            SELECT
+                ROUND( COUNT(*) FILTER (WHERE session_status = 'COMPLETED')::DECIMAL
+                / NULLIF(COUNT(*), 0) , 4)  AS completionRate,
+                ROUND(
+                 AVG (
+                    LEAST(actual_duration_minutes::DECIMAL / NULLIF(planned_duration_minutes, 0), 1.0)
+                    )
+                 FILTER(WHERE session_status = 'COMPLETED'), 4  )   AS  consistencyRate,
+                 COUNT(*)   AS  totalSessions,
+                 COALESCE( AVG(interruptions_count)
+                    FILTER (WHERE session_status = 'COMPLETED'), 0) AS averageInterruptions
+            FROM study_sessions
+            WHERE user_id = :userId
+                AND session_type = 'WORK'
+                AND start_time >= :since
+                AND start_time < :until
+            """, nativeQuery = true)
+    ProductivityRawProjection fetchRawUserProductivityData(@Param("userId")Long userId,
+                                                           @Param("since") LocalDateTime since,
+                                                           @Param("until") LocalDateTime until);
+
+
+    /**
+     * These queries are pretty similar but has distinct DATE_TRUNC function arguments.
+     * The reason for this is that Postgres needs its function arguments defined at compile time to know what action it must perform.
+     * @param userId
+     * @param since
+     * @return
+     */
+
+    @Query(value = """
+            SELECT
+                DATE_TRUNC('day', start_time)   AS periodStart,
+                COUNT(*)    AS sessions,
+                COALESCE( SUM(actual_duration_minutes) 
+                    FILTER (WHERE session_status = 'COMPLETED'), 0) AS focusMinutes,
+                ROUND( COUNT(*) FILTER (WHERE session_status = 'COMPLETED')::DECIMAL
+                    / NULLIF(COUNT(*), 0), 2)   AS completionRate
+            FROM study_sessions
+            WHERE user_id = :userId
+                AND session_type = 'WORK'
+                AND start_time >= :since
+            GROUP BY DATE_TRUNC('day', start_time)
+            ORDER BY DATE_TRUNC('day', start_time) ASC
+            """, nativeQuery = true)
+    List<BreakDownProjection> findDailyBreakDown(@Param("userId") Long userId,
+                                                        @Param("since") LocalDateTime since);
+
+
+    @Query(value = """
+            SELECT
+                DATE_TRUNC('week', start_time)   AS periodStart,
+                COUNT(*)    AS sessions,
+                COALESCE( SUM(actual_duration_minutes) 
+                    FILTER (WHERE session_status = 'COMPLETED'), 0) AS focusMinutes,
+                ROUND( COUNT(*) FILTER (WHERE session_status = 'COMPLETED')::DECIMAL
+                    / NULLIF(COUNT(*), 0), 2)   AS completionRate
+            FROM study_sessions
+            WHERE user_id = :userId
+                AND session_type = 'WORK'
+                AND start_time >= :since
+            GROUP BY DATE_TRUNC('week', start_time)
+            ORDER BY DATE_TRUNC('week', start_time) ASC
+            """, nativeQuery = true)
+    List<BreakDownProjection> findWeeklyBreakdown(@Param("userId") Long userId,
+                                                  @Param("since") LocalDateTime since);
+
+
+    @Query(value = """
+            SELECT
+                DATE_TRUNC('month', start_time)   AS periodStart,
+                COUNT(*)    AS sessions,
+                COALESCE( SUM(actual_duration_minutes) 
+                    FILTER (WHERE session_status = 'COMPLETED'), 0) AS focusMinutes,
+                ROUND( COUNT(*) FILTER (WHERE session_status = 'COMPLETED')::DECIMAL
+                    / NULLIF(COUNT(*), 0), 2)   AS completionRate
+            FROM study_sessions
+            WHERE user_id = :userId
+                AND session_type = 'WORK'
+                AND start_time >= :since
+            GROUP BY DATE_TRUNC('month', start_time)
+            ORDER BY DATE_TRUNC('month', start_time) ASC
+            """, nativeQuery = true)
+    List<BreakDownProjection> findMonthlyBreakDown(@Param("userId") Long userId,
+                                                   @Param("since") LocalDateTime since);
+
+
 
 }

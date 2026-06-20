@@ -1,24 +1,18 @@
 package com.lancea.studium.studium_api.controller;
 
-import com.lancea.studium.studium_api.dto.response.bundled_response.DashboardResponse;
-import com.lancea.studium.studium_api.dto.response.bundled_response.SubjectsPageResponse;
+import com.lancea.studium.studium_api.dto.response.bundled_response.*;
 import com.lancea.studium.studium_api.dto.response.paged_response.PagedResponse;
-import com.lancea.studium.studium_api.dto.response.bundled_response.SessionOverviewResponse;
-import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionsPerSubject;
-import com.lancea.studium.studium_api.dto.response.single_response.CompletedSessionSummary;
-import com.lancea.studium.studium_api.dto.response.single_response.FocusRecommendationDTO;
-import com.lancea.studium.studium_api.dto.response.single_response.SessionResponse;
+import com.lancea.studium.studium_api.dto.response.single_response.*;
 import com.lancea.studium.studium_api.entity.StudySession;
-import com.lancea.studium.studium_api.entity.User;
 import com.lancea.studium.studium_api.service.DataService;
 import com.lancea.studium.studium_api.service.FocusRecommendationService;
 import com.lancea.studium.studium_api.service.SessionService;
+import com.lancea.studium.studium_api.shared.enums.BreakDownPeriod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -94,7 +88,8 @@ public class DataController {
 
 
     @GetMapping("/analytics/subjects/completed-sessions")
-    public ResponseEntity<List<CompletedSessionsPerSubject>> retrieveCompletedSessionsByTimePeriod(@AuthenticationPrincipal UserDetails userDetails, @RequestParam (defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
+    public ResponseEntity<List<CompletedSessionsPerSubject>> retrieveCompletedSessionsByTimePeriod(@AuthenticationPrincipal UserDetails userDetails,
+                                                                                                   @RequestParam (defaultValue = "#{T(java.time.YearMonth).now()") YearMonth month){
         return ResponseEntity.ok(sessionService.getCompletedSessionsByTimePeriod(userDetails, month));
     }
 
@@ -102,5 +97,33 @@ public class DataController {
     public ResponseEntity<FocusRecommendationDTO> retrieveRecommendation(@AuthenticationPrincipal UserDetails userDetails){
         return ResponseEntity.ok(focusRecommendationService.retrieveRecommendation(userDetails));
     }
+
+    @GetMapping("/analytics/summary")
+    public ResponseEntity<SummaryStatsDTO> retrieveUserSummary(@AuthenticationPrincipal UserDetails userDetails){
+        return ResponseEntity.ok(dataService.getUsersSummaryStats(userDetails));
+    }
+
+    @GetMapping("/analytics/peak-hours")
+    public ResponseEntity<PeakHoursDTO> retrievePeakHours(@AuthenticationPrincipal UserDetails userDetails,
+                                                          @RequestParam(defaultValue = "90") int days){
+        return ResponseEntity.ok(dataService.getUserPeakHours(userDetails, days));
+    }
+
+    @GetMapping("/analytics/productivity-score")
+    public ResponseEntity<ProductivityScoreDTO> retrieveProductivityScore(@AuthenticationPrincipal UserDetails userDetails){
+        return ResponseEntity.ok(dataService.getUserProductivityScore(userDetails));
+    }
+
+    @GetMapping("/analytics/breakdown")
+    public ResponseEntity<BreakDownDTO> retrieveBreakdown(@AuthenticationPrincipal UserDetails userDetails,
+                                                          @RequestParam(defaultValue = "WEEKLY")BreakDownPeriod period){
+        return ResponseEntity.ok(dataService.getBreakDown(userDetails, period));
+    }
+
+    @GetMapping("analytics/goals")
+    public ResponseEntity<GoalProgressDTO> retrieveUserWeeklyGoals(@AuthenticationPrincipal UserDetails userDetails){
+        return ResponseEntity.ok(dataService.getUserWeeklyGoals(userDetails));
+    }
+
 
 }

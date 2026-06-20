@@ -1,8 +1,8 @@
 package com.lancea.studium.studium_api.service;
 
+import com.lancea.studium.studium_api.dto.projection.PeakHourProjection;
 import com.lancea.studium.studium_api.dto.response.single_response.DurationBucketDTO;
 import com.lancea.studium.studium_api.dto.response.single_response.FocusRecommendationDTO;
-import com.lancea.studium.studium_api.dto.response.single_response.PeakHourDTO;
 import com.lancea.studium.studium_api.repository.StudySessionRepository;
 import com.lancea.studium.studium_api.shared.enums.SessionStatus;
 import com.lancea.studium.studium_api.shared.enums.SessionType;
@@ -60,13 +60,7 @@ public class FocusRecommendationService {
         List<DurationBucketDTO> sessionBuckets = studySessionRepository.findDurationBucketsByUserId(userId,
                 SessionType.WORK, SessionStatus.COMPLETED, SessionStatus.CANCELLED, since);
 
-        List<PeakHourDTO> peakHourList = studySessionRepository.findPeakHoursByUser(userId, SessionType.WORK, SessionStatus.COMPLETED, since).stream()
-                .map(row -> new PeakHourDTO(
-                        ((Number) row[0]).longValue(),
-                        ((Number) row[1]).longValue(),
-                        ((Number) row[2]).doubleValue()
-                ))
-                .toList();;
+        List<PeakHourProjection> peakHourList = studySessionRepository.findPeakHoursByUser(userId, since);
 
 
         DurationBucketDTO bestBucket = scoreBuckets(sessionBuckets);
@@ -132,9 +126,9 @@ public class FocusRecommendationService {
      * @param peakHours
      * @return human readable insight
      */
-    private String retrievePeakHour(List<PeakHourDTO> peakHours){
+    private String retrievePeakHour(List<PeakHourProjection> peakHours){
         return insightGenerator.generatePeakHourInsight(
-                peakHours.isEmpty() ? null : peakHours.getFirst().hourOfTheDay());
+                peakHours.isEmpty() ? null : peakHours.getFirst().getHour());
     }
 
 
