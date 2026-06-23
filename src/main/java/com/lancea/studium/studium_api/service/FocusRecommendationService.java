@@ -114,7 +114,7 @@ public class FocusRecommendationService {
      */
 
     private double calculateConfidence(DurationBucketDTO bestBucket, Long totalSessions){
-        double sampleSizeFactor = Math.min(totalSessions * 50.0, 1.00);
+        double sampleSizeFactor = Math.min(totalSessions / 50.0, 1.00);
         double rawConfidence = bestBucket.completionRate() * sampleSizeFactor;
 
         return Math.round(rawConfidence * 100.0) / 100.0;

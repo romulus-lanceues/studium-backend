@@ -242,12 +242,12 @@ public class DataService {
         //Volume score: sessions completed this past period divided by session target for 4 weeks
         // Clamped to 1.0 so exceeding the target doesn't inflate the score
         int periodTarget =  userTargetSessionPerWeek.intValue() * 4;
-        double volumeRate = Math.min(rawProjection.getCompletionRate() / periodTarget, 1.0) ;
+        double volumeRate = Math.min(rawProjection.getTotalSessions().doubleValue() / periodTarget, 1.0) ;
 
         double rawScore = (completionRate * COMPLETION_WEIGHT) +
                             (consistencyRate * CONSISTENCY_WEIGHT) +
                             (volumeRate * VOLUME_WEIGHT) +
-                            (focusQuality + FOCUS_QUALITY_WEIGHT);
+                            (focusQuality * FOCUS_QUALITY_WEIGHT);
 
         return (int) Math.round(rawScore * 100);
     }
