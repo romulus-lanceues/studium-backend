@@ -1,308 +1,243 @@
 # Studium API
 
-A production-ready RESTful API for a Pomodoro-style study session management application. Built with Spring Boot 3.5.7 and Java 21, featuring secure JWT authentication, real-time session tracking, and comprehensive study analytics.
+Studium API is a Spring Boot backend for a Pomodoro-style study productivity app. It handles authentication, subject management, study session tracking, and analytics for understanding how a user studies over time.
 
-## Overview
+The project started as the backend for my own study workflow, so the API is built around practical app behavior rather than demo-only CRUD. It supports secure cookie-based JWT authentication, refresh-token rotation, Pomodoro session state changes, subject goals, dashboard stats, productivity scoring, and personalized focus recommendations.
 
-Studium API is a backend service that powers a study productivity application, enabling users to manage study sessions, track subjects, and monitor their learning progress using the Pomodoro Technique. The API implements industry-standard security practices, scalable architecture, and efficient data management.
+## Why This Project Exist?
 
-## Key Features
+This project exists as a product of me wanting to keep my study sessions tracked and learn from them through analytics. Am I spending my study sessions productively? Or maybe I'm being interrupted left and right. I know there's a lot of POMODORO systems out there, but as someone who's very passionate when it comes to software development, I feel like it'll be better if I create one. :)
 
-### Authentication & Security
-- **JWT-based Authentication** with access and refresh token rotation
-- **Argon2 Password Hashing** - Industry-leading password security (with BCrypt fallback)
-- **HTTP-only Secure Cookies** for token storage
-- **Role-based Access Control** (RBAC) with USER and ADMIN roles
-- **Stateless Session Management** for scalability
-- **Custom Exception Handling** with proper HTTP status codes
-- **CORS Configuration** for secure cross-origin requests
+This API powers those workflows through a relational data model, session lifecycle rules, and analytics queries built around real study behavior.
 
-### Study Session Management
-- **Pomodoro Timer Sessions** - Create, pause, resume, and complete study sessions
-- **Session Types** - Work sessions, short breaks, and long breaks
-- **Interruption Tracking** - Monitor and log session interruptions
-- **Session States** - IN_PROGRESS, PAUSED, COMPLETED, CANCELLED
-- **Real-time Session Data** - Track planned vs actual duration
-- **Session Notes** - Add notes and reflections to completed sessions
+## Highlights
 
-### Subject Management
-- **Subject Organization** - Create and manage study subjects
-- **Weekly Goals** - Set and track weekly study time targets
-- **Progress Tracking** - Monitor total study time and completed Pomodoros
-- **Subject Analytics** - View study statistics per subject
+- Secure registration and login with Spring Security
+- JWT access tokens stored in HTTP-only cookies
+- Refresh-token rotation with database-backed revocation
+- Argon2 password hashing with BCrypt support
+- Role-based access control for user and admin behavior
+- Subject creation, updates, weekly goals, and progress tracking
+- Pomodoro session lifecycle: start, pause, resume, complete, cancel
+- Interruption tracking for focus quality
+- Dashboard data for streaks, daily sessions, and last activity
+- Analytics for summary stats, peak study hours, weekly goals, breakdowns, and productivity score
+- Focus recommendations based on historical duration, completion rate, and interruptions
+- PostgreSQL-backed persistence with Spring Data JPA
+- Dockerfile for containerized deployment
 
-### Performance & Scalability
-- **Redis Integration** - Caching layer for improved performance
-- **Lazy Loading** - Optimized database queries with JPA lazy fetching
-- **Connection Pooling** - Efficient database connection management
-- **Stateless Architecture** - Horizontally scalable design
+## Tech Stack
 
-## Technology Stack
+- Java 21
+- Spring Boot 3.5.14
+- Spring Web
+- Spring Security
+- Spring Data JPA
+- PostgreSQL
+- JJWT
+- Argon2 / BCrypt password encoding
+- Bean Validation
+- Lombok
+- Maven
+- Docker
 
-### Core Framework
-- **Spring Boot 3.5.7** - Modern Java application framework
-- **Java 21** - Latest LTS version with modern language features
-- **Maven** - Dependency management and build automation
+## Architecture
 
-### Security
-- **Spring Security** - Comprehensive security framework
-- **JJWT 0.12.6** - JSON Web Token implementation
-- **Argon2** - Memory-hard password hashing algorithm
-- **Bouncy Castle** - Cryptographic provider
+The API follows a layered Spring Boot structure:
 
-### Database & Caching
-- **PostgreSQL** - Robust relational database
-- **Spring Data JPA** - Data persistence layer
-- **Hibernate** - ORM framework
-- **Redis** - In-memory data structure store for caching
-
-### Additional Libraries
-- **Lombok** - Reduces boilerplate code
-- **Bean Validation** - Input validation and constraints
-- **Jackson** - JSON processing
-
-##  Architecture
-
-The application follows a **layered architecture** pattern with clear separation of concerns:
-
-```
-┌─────────────────────────────────────┐
-│         Controllers Layer           │  ← REST API endpoints
-├─────────────────────────────────────┤
-│         Services Layer              │  ← Business logic
-├─────────────────────────────────────┤
-│         Repository Layer            │  ← Data access
-├─────────────────────────────────────┤
-│         Entity Layer                │  ← Domain models
-└─────────────────────────────────────┘
+```text
+Controllers  -> HTTP endpoints and request/response boundaries
+Services     -> business rules, authorization checks, analytics logic
+Repositories -> database access through Spring Data JPA
+Entities     -> persisted domain model
+DTOs         -> API request and response contracts
+Security     -> JWT filter, user details, auth configuration
 ```
 
-### Key Components
+Important domain areas:
 
-- **Controllers** - Handle HTTP requests and responses
-- **Services** - Implement business logic and orchestration
-- **Repositories** - Data access abstraction
-- **Entities** - JPA domain models with relationships
-- **DTOs** - Data Transfer Objects for request/response
-- **Security Filters** - JWT authentication and authorization
-- **Exception Handlers** - Centralized error handling
-- **Configuration** - Security, CORS, Redis, and cookie settings
+- `AuthService` manages registration, login, logout, and refresh-token rotation.
+- `SessionService` owns Pomodoro session behavior and state transitions.
+- `SubjectService` manages subjects and weekly study goals.
+- `DataService` builds dashboard and analytics responses.
+- `FocusRecommendationService` calculates personalized focus-session suggestions.
 
-## API Endpoints
+## Core Features
 
-### Authentication (`/api/v1/auth`)
-- `POST /register` - Create new user account
-- `POST /login` - Authenticate and receive tokens
-- `POST /refresh-token` - Refresh access token
-- `POST /logout` - Invalidate tokens and logout
-- `GET /user/{userId}` - Get user information
+### Authentication
 
-### Study Sessions (`/api/v1/sessions`)
-- `POST /start` - Start a new study session
-- `GET /{id}` - Get session details
-- `PATCH /{sessionId}/pause` - Pause active session
-- `PATCH /{sessionId}/resume` - Resume paused session
-- `PATCH /{sessionId}/interruptions` - Log an interruption
-- `PATCH /{sessionId}/completed` - Mark session as completed
-- `PATCH /{sessionId}/cancel` - Cancel active session
+- Register and log in with email/password
+- Store access and refresh tokens in HTTP-only cookies
+- Rotate refresh tokens when generating a new access token
+- Revoke refresh tokens on logout
+- Hash passwords using Argon2 by default
 
-### Subjects (`/api/v1/subject`)
-- `POST /add` - Create a new subject
-- `GET /subjects` - Get all user's subjects
-- `GET /{subjectId}` - Get subject details
+### Study Sessions
 
-### Admin (`/api/admin-qwerty`)
-- `POST /revoke/token` - Revoke refresh token (Admin only)
+- Start a work, short-break, or long-break session
+- Pause and resume active sessions
+- Record interruptions
+- Complete or cancel sessions
+- Track planned duration versus actual duration
+- Save notes for session context
 
-## Security Features
+### Subjects
 
-### Token Management
-- **Access Tokens** - Short-lived (15 minutes) for API access
-- **Refresh Tokens** - Long-lived (7 days) stored in database
-- **Token Rotation** - Refresh tokens are rotated on each use
-- **Token Revocation** - Support for token invalidation
+- Create and manage study subjects
+- Assign colors and descriptions
+- Set weekly session goals
+- Track completed Pomodoros and total study time
+- Maintain subject-level streaks
 
-### Password Security
-- **Argon2 Hashing** - Memory-hard algorithm resistant to GPU attacks
-- **Delegating Password Encoder** - Support for multiple algorithms
-- **Secure Storage** - Passwords never stored in plain text
+### Analytics
 
-### Request Security
-- **JWT Filter Chain** - Validates tokens on every request
-- **Authentication Principal** - Spring Security integration
-- **Method-level Security** - `@PreAuthorize` for role-based access
+- Dashboard summary
+- Session history
+- Weekly completion overview
+- Monthly completed-session totals
+- Completed sessions per subject
+- Summary stats
+- Peak study hours
+- Productivity score and trend
+- Daily, weekly, and monthly breakdowns
+- Weekly goal progress
 
-## Getting Started
+### Focus Recommendation
 
-### Prerequisites
-- Java 21 or higher
-- Maven 3.6+
-- PostgreSQL 12+
-- Redis 6+
+The recommendation system looks at completed and cancelled work sessions over a recent analysis window. It groups sessions by planned duration, scores each duration using completion rate and interruption count, and returns a suggested focus length with a confidence value and human-readable insight.
 
-### Environment Variables
+## API Overview
 
-Create a `.env` file or set the following environment variables:
+### Auth
+
+```text
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh-token
+POST /api/v1/auth/logout
+GET  /api/v1/auth/user/{userId}
+```
+
+### Subjects
+
+```text
+POST   /api/v1/subject/add
+GET    /api/v1/subject/subjects
+GET    /api/v1/subject/{subjectId}
+PATCH  /api/v1/subject/update/{subjectId}
+DELETE /api/v1/subject/delete/{subjectId}
+```
+
+### Sessions
+
+```text
+POST  /api/v1/sessions/{subjectId}/start
+GET   /api/v1/sessions/{id}
+PATCH /api/v1/sessions/{sessionId}/pause
+PATCH /api/v1/sessions/{sessionId}/resume
+PATCH /api/v1/sessions/{sessionId}/interruptions
+PATCH /api/v1/sessions/{sessionId}/completed
+PATCH /api/v1/sessions/{sessionId}/cancel
+GET   /api/v1/sessions/sessions/today
+GET   /api/v1/sessions/{subjectId}/history
+```
+
+### Data and Analytics
+
+```text
+GET /api/v1/data/dashboard
+GET /api/v1/data/session-history
+GET /api/v1/data/subjects-data
+GET /api/v1/data/week/overview
+GET /api/v1/data/analytics/summary
+GET /api/v1/data/analytics/peak-hours
+GET /api/v1/data/analytics/productivity-score
+GET /api/v1/data/analytics/recommendation
+GET /api/v1/data/analytics/breakdown
+GET /api/v1/data/analytics/goals
+```
+
+## Configuration
+
+The application expects these environment variables:
 
 ```bash
-# Database Configuration
 DB_URL=jdbc:postgresql://localhost:5432/studium_db
 DB_USER=your_db_user
 DB_PASS=your_db_password
 
-# JWT Configuration
-TOKEN_SIGNATURE=your-secret-key-minimum-256-bits
+TOKEN_SIGNATURE=your-base64-encoded-secret
+TOKEN_EXPIRATION=900000
+REFRESH_TOKEN_EXPIRATION=604800000
 ```
 
-### Installation
+Cookie behavior is configured in `src/main/resources/application.properties`.
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd studium-api
-   ```
+## Running Locally
 
-2. **Configure database**
-   - Create a PostgreSQL database
-   - Update `application.properties` or set environment variables
+### Prerequisites
 
-3. **Start Redis**
-   ```bash
-   redis-server
-   ```
+- Java 21+
+- Maven 3.6+
+- PostgreSQL 12+
 
-4. **Build the project**
-   ```bash
-   mvn clean install
-   ```
+### Start the app
 
-5. **Run the application**
-   ```bash
-   mvn spring-boot:run
-   ```
-
-The API will be available at `http://localhost:8080`
-
-## 📁 Project Structure
-
-```
-src/main/java/com/lancea/studium/studium_api/
-├── config/              # Configuration classes
-│   ├── CookieUtil.java
-│   ├── GlobalCorsConfig.java
-│   ├── RedisConfig.java
-│   └── SecurityConfig.java
-├── controller/          # REST controllers
-│   ├── AdminController.java
-│   ├── AuthController.java
-│   ├── SessionController.java
-│   └── SubjectController.java
-├── dto/                 # Data Transfer Objects
-│   ├── request/         # Request DTOs
-│   └── response/        # Response DTOs
-├── entity/              # JPA entities
-│   ├── RefreshToken.java
-│   ├── Role.java
-│   ├── SessionStatus.java
-│   ├── SessionType.java
-│   ├── StudySession.java
-│   ├── Subject.java
-│   └── User.java
-├── exception/           # Custom exceptions
-│   ├── GlobalExceptionHandler.java
-│   └── ...
-├── repository/          # Data access layer
-│   ├── RefreshTokenRepository.java
-│   ├── StudySessionRepository.java
-│   ├── SubjectRepository.java
-│   └── UserRepository.java
-├── security/            # Security components
-│   ├── JwtAuthenticationFilter.java
-│   ├── MyExceptionTranslationFilter.java
-│   └── MyUserDetails.java
-└── service/             # Business logic
-    ├── AdminService.java
-    ├── AuthService.java
-    ├── JwtService.java
-    ├── SessionService.java
-    └── SubjectService.java
+```bash
+./mvnw spring-boot:run
 ```
 
-## Design Patterns & Best Practices
+On Windows:
 
-- **Repository Pattern** - Abstraction for data access
-- **Service Layer Pattern** - Separation of business logic
-- **DTO Pattern** - Data transfer objects for API contracts
-- **Builder Pattern** - Lombok builders for entity creation
-- **Filter Pattern** - JWT authentication filter
-- **Exception Handling** - Global exception handler with proper HTTP status codes
-- **Dependency Injection** - Constructor-based DI throughout
-- **RESTful Design** - Proper HTTP methods and status codes
-- **Stateless Architecture** - No server-side sessions
+```bash
+mvnw.cmd spring-boot:run
+```
 
-## Database Schema
+The API runs on:
 
-### Core Entities
-- **Users** - User accounts with email, password, and role
-- **Subjects** - Study subjects with goals and progress tracking
-- **StudySessions** - Individual Pomodoro sessions with state management
-- **RefreshTokens** - Token storage for refresh token rotation
+```text
+http://localhost:8080
+```
 
-### Relationships
-- User → Subjects (One-to-Many)
-- User → StudySessions (One-to-Many)
-- Subject → StudySessions (One-to-Many)
+## Running With Docker
+
+```bash
+docker build -t studium-api .
+docker run -p 8080:8080 --env-file .env studium-api
+```
 
 ## Testing
 
-Run tests with:
 ```bash
-mvn test
+./mvnw test
 ```
 
-## API Documentation
+Test coverage is an active improvement area. The next step is to add focused service and integration tests for authentication, session ownership, session lifecycle behavior, analytics calculations, and recommendation scoring.
 
-The API follows RESTful conventions:
-- JSON request/response format
-- Proper HTTP status codes (200, 201, 400, 401, 403, 404, 409, 500)
-- Consistent error response format
-- Resource-based URLs
+## Current Improvement Roadmap
 
-## Future Enhancements
+- Add unit tests for core services
+- Add integration tests with PostgreSQL/Test containers
+- Add OpenAPI/Swagger documentationf
+- Add Flyway or Liquibase database migrations
+- Tighten ownership checks on all ID-based read/delete endpoints
+- Improve request validation for session and subject DTOs
+- Replace debug `System.out.println` calls with structured logging
+- Add CI for tests and Docker builds
+- Add rate limiting for authentication endpoints
+- Add email verification and password reset
 
-- [ ] OpenAPI/Swagger documentation
-- [ ] Unit and integration tests
-- [ ] WebSocket support for real-time session updates
-- [ ] Email verification
-- [ ] Password reset functionality
-- [ ] Study statistics and analytics endpoints
-- [ ] Export study data (CSV/JSON)
-- [ ] Docker containerization
-- [ ] CI/CD pipeline
-- [ ] Rate limiting
-- [ ] API versioning strategy
+## What This Project Demonstrates
 
-## License
+- Building a non-trivial REST API with Spring Boot
+- Implementing cookie-based JWT authentication
+- Designing refresh-token rotation and revocation
+- Modeling a real productivity domain with JPA relationships
+- Writing service-layer business rules for stateful workflows
+- Creating analytics endpoints from relational data
+- Turning user behavior into personalized recommendations
+- Structuring a backend project for future production hardening
 
-This project is part of a personal portfolio.
+## Author
 
-## Developer
-
-**Lance Buela**
-
-Built with passion using Spring Boot and modern Java best practices.
-
----
-
-This API demonstrates:
-- ✅ **Production-ready security** with JWT, refresh tokens, and Argon2 hashing
-- ✅ **Scalable architecture** with stateless design and Redis caching
-- ✅ **Clean code** following SOLID principles and design patterns
-- ✅ **Modern Java** using Java 21 features and Spring Boot 3.5.7
-- ✅ **Database design** with proper relationships and JPA optimization
-- ✅ **Error handling** with comprehensive exception management
-- ✅ **RESTful API design** following industry standards
-- ✅ **Real-world application** solving an actual problem (study productivity)
-
-
-
+Built by Lance Buela as a personal productivity API and backend portfolio project.
