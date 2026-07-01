@@ -33,7 +33,7 @@ public class MyUserDetails implements UserDetails {
         return user.getPassword();
     }
 
-    //No roles for now
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
         return List.of(new SimpleGrantedAuthority(user.getRole().getAuthority()));
